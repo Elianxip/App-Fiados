@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FiadoApp - Gestión de Créditos</title>
+    <link rel="stylesheet" href="styles.css">
+    <!-- Removimos todas las dependencias externas (Google Fonts, Phosphor Icons) -->
+    <!-- Ahora funciona 100% sin conexión a internet (offline) -->
+</head>
+<body>
+    <div id="app">
+        <!-- Sidebar / Topbar -->
+        <nav class="navbar">
+            <div class="logo">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/></svg>
+                <span>FiadoApp</span>
+            </div>
+            <div class="nav-links">
+                <button class="nav-item active" data-view="dashboard">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg>
+                    <span>Dashboard</span>
+                </button>
+                <button class="nav-item" data-view="clients">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                    <span>Clientes</span>
+                </button>
+            </div>
+        </nav>
+
+        <!-- Main Content Area -->
+        <main class="content">
+            <!-- VIEW: Dashboard -->
+            <section id="view-dashboard" class="view active">
+                <header class="view-header">
+                    <h1>Resumen General</h1>
+                    <p>Monitorea el estado de tus cobros.</p>
+                </header>
+                
+                <div class="stats-grid">
+                    <div class="stat-card glass">
+                        <div class="stat-icon">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="12" x="2" y="6" rx="2"/><circle cx="12" cy="12" r="2"/><path d="M6 12h.01M18 12h.01"/></svg>
+                        </div>
+                        <div class="stat-info">
+                            <h3>Total en la calle</h3>
+                            <h2 id="total-debt">$0.00</h2>
+                        </div>
+                    </div>
+                    <div class="stat-card glass">
+                        <div class="stat-icon">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                        </div>
+                        <div class="stat-info">
+                            <h3>Clientes Activos</h3>
+                            <h2 id="total-clients">0</h2>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="recent-transactions glass">
+                    <h2>Últimos Movimientos</h2>
+                    <div class="transaction-list" id="recent-transactions-list">
+                        <!-- Transactions injected via JS -->
+                    </div>
+                </div>
+            </section>
+
+            <!-- VIEW: Clients -->
+            <section id="view-clients" class="view">
+                <header class="view-header flex-between">
+                    <div>
+                        <h1>Tus Clientes</h1>
+                        <p>Gestiona a las personas que te deben.</p>
+                    </div>
+                    <button class="btn btn-primary" id="btn-add-client">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+                        Nuevo Cliente
+                    </button>
+                </header>
+
+                <div class="clients-grid" id="clients-list">
+                    <!-- Clients injected via JS -->
+                </div>
+            </section>
+
+            <!-- VIEW: Client Detail -->
+            <section id="view-client-detail" class="view">
+                <header class="view-header flex-between">
+                    <div>
+                        <button class="btn-icon" id="btn-back-clients">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>
+                            Volver
+                        </button>
+                        <h1 id="detail-client-name">Nombre Cliente</h1>
+                        <p>Detalle de cuenta</p>
+                    </div>
+                    <div class="client-balance-badge">
+                        <span>Deuda Total:</span>
+                        <strong id="detail-client-debt">$0.00</strong>
+                    </div>
+                </header>
+
+                <div class="actions-row">
+                    <button class="btn btn-danger" id="btn-add-debt">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/></svg>
+                        Anotar Fiado
+                    </button>
+                    <button class="btn btn-success" id="btn-add-payment">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="m9 11 3 3L22 4"/></svg>
+                        Registrar Abono
+                    </button>
+                </div>
+
+                <div class="history-section glass">
+                    <h2>Historial de Movimientos</h2>
+                    <div class="transaction-list" id="client-history-list">
+                        <!-- History injected via JS -->
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Modals -->
+    <div id="modal-overlay" class="modal-overlay hidden">
+        <!-- Modal: Add Client -->
+        <div id="modal-add-client" class="modal glass hidden">
+            <div class="modal-header">
+                <h2>Nuevo Cliente</h2>
+                <button class="btn-close-modal">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                </button>
+            </div>
+            <form id="form-add-client">
+                <div class="input-group">
+                    <label>Nombre Completo</label>
+                    <input type="text" id="input-client-name" required placeholder="Ej. Juan Pérez">
+                </div>
+                <div class="input-group">
+                    <label>Teléfono (Opcional)</label>
+                    <input type="tel" id="input-client-phone" placeholder="Ej. 809-123-4567">
+                </div>
+                <button type="submit" class="btn btn-primary w-full">Guardar Cliente</button>
+            </form>
+        </div>
+
+        <!-- Modal: Add Debt (Fiado) -->
+        <div id="modal-add-debt" class="modal glass hidden">
+            <div class="modal-header">
+                <h2>Anotar Producto Fiado</h2>
+                <button class="btn-close-modal">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                </button>
+            </div>
+            <form id="form-add-debt">
+                <div class="input-group">
+                    <label>Descripción del Producto</label>
+                    <input type="text" id="input-debt-desc" required placeholder="Ej. 2 Fundas de Cemento">
+                </div>
+                <div class="input-group">
+                    <label>Monto</label>
+                    <input type="number" id="input-debt-amount" required min="1" step="0.01" placeholder="Ej. 1500">
+                </div>
+                <button type="submit" class="btn btn-danger w-full">Añadir a la Cuenta</button>
+            </form>
+        </div>
+
+        <!-- Modal: Add Payment (Abono) -->
+        <div id="modal-add-payment" class="modal glass hidden">
+            <div class="modal-header">
+                <h2>Registrar Abono</h2>
+                <button class="btn-close-modal">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                </button>
+            </div>
+            <form id="form-add-payment">
+                <div class="input-group">
+                    <label>Monto del Abono</label>
+                    <input type="number" id="input-payment-amount" required min="1" step="0.01" placeholder="Ej. 500">
+                </div>
+                <div class="input-group">
+                    <label>Nota (Opcional)</label>
+                    <input type="text" id="input-payment-note" placeholder="Ej. Transferencia Banco">
+                </div>
+                <button type="submit" class="btn btn-success w-full">Aplicar Abono</button>
+            </form>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
