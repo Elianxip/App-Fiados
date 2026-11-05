@@ -138,3 +138,21 @@ grant select on public.audit_events to authenticated;
 -- El backend de confianza podrá insertar eventos; nunca exponer su clave en frontend.
 grant insert, update on public.reminder_events to service_role;
 grant insert on public.audit_events to service_role;
+
+
+-- Habilitar eventos Realtime para sincronizar dispositivos (si no están añadidos).
+do $$
+begin
+  if not exists (
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'clients'
+  ) then
+    alter publication supabase_realtime add table public.clients;
+  end if;
+  if not exists (
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'transactions'
+  ) then
+    alter publication supabase_realtime add table public.transactions;
+  end if;
+end $$;
