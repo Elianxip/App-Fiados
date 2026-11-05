@@ -410,3 +410,25 @@ p { color: var(--text-secondary); }
   .fiados-cloud-actions { flex-direction: column; }
   .fiados-cloud-actions .btn { width: 100%; }
 }
+
+
+/* Fiados 2.0 PRO additions */
+.fiados-v2-backup-actions { display:flex; flex-wrap:wrap; gap:.75rem; margin-top:1rem; }
+#pro-dashboard-extra .stats-grid { margin-top:1.25rem; }
+#pro-dashboard-extra .stat-card { min-width:0; }
+#view-agenda .transaction-item, #view-reportes .transaction-item { display:flex;justify-content:space-between;align-items:center;gap:1rem;padding:1rem 0;border-bottom:1px solid var(--glass-border); }
+#view-agenda .transaction-item:last-child, #view-reportes .transaction-item:last-child { border-bottom:0; }
+#view-agenda .transaction-item h3 { margin-bottom:.25rem; }
+@media(max-width:760px){
+ .fiados-v2-backup-actions .btn { flex:1 1 100%; }
+ #view-agenda .transaction-item { align-items:flex-start; flex-direction:column; }
+}
+@media print {
+ body { background:#fff!important;color:#111!important; }
+ .navbar,.btn,.fiados-cloud-panel,.fiados-v2-backup { display:none!important; }
+ .content { padding:0!important; }
+ .view { display:none!important; }
+ #view-reportes { display:block!important; }
+ .glass,.stat-card { background:#fff!important;color:#111!important;box-shadow:none!important;border:1px solid #ddd!important; }
+ p,.stat-info h3 { color:#333!important; }
+}
