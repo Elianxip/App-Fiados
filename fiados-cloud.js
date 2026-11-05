@@ -94,6 +94,7 @@
       $('fiados-upload-local').hidden = false;
       $('fiados-download-cloud').hidden = true;
     } else if (!localCount && remoteCount) {
+      state.mode = 'pending-download';
       setStatus('Encontramos ' + remote.clients.length + ' clientes y ' + remote.transactions.length + ' movimientos en la nube. Pulsa “Descargar datos de la nube” para traerlos a este dispositivo.');
       $('fiados-upload-local').hidden = true;
       $('fiados-download-cloud').hidden = false;
@@ -102,6 +103,7 @@
       $('fiados-upload-local').hidden = true;
       $('fiados-download-cloud').hidden = true;
     } else {
+      state.mode = 'ready';
       setStatus('Cuenta conectada. No hay datos todavía. Puedes comenzar a registrar clientes.');
       $('fiados-upload-local').hidden = true;
       $('fiados-download-cloud').hidden = true;
@@ -140,6 +142,7 @@
       if (remote.clients.length || remote.transactions.length) throw new Error('La nube ya contiene datos. Se canceló para evitar sobrescribirlos.');
       if (!window.confirm('Se copiarán ' + local.clients.length + ' clientes y ' + local.transactions.length + ' movimientos de este dispositivo a tu cuenta Supabase. Los datos locales no se borrarán. ¿Continuar?')) return;
       await upsertLocalToCloud(local);
+      state.mode = 'ready';
       setStatus('Migración inicial completada. Los datos locales se conservaron y ya existe una copia en la nube.');
       $('fiados-upload-local').hidden = true;
     } catch (e) { setStatus(e.message || 'Falló la migración.', true); }
@@ -154,6 +157,7 @@
       const remote = await fetchCloud();
       if (!window.confirm('Se copiarán ' + remote.clients.length + ' clientes y ' + remote.transactions.length + ' movimientos desde la nube a este dispositivo. ¿Continuar?')) return;
       replaceLocal(remote);
+      state.mode = 'ready';
       setStatus('Datos descargados y cargados en este dispositivo.');
       $('fiados-download-cloud').hidden = true;
     } catch (e) { setStatus(e.message || 'Falló la descarga.', true); }
