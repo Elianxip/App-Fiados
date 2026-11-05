@@ -365,3 +365,48 @@ p { color: var(--text-secondary); }
     .client-balance-badge { margin-top: 1rem; }
     .flex-between { flex-direction: column; align-items: flex-start; gap: 1rem; }
 }
+
+
+/* Fiados 2.0 — respaldo y controles móviles */
+.fiados-v2-backup {
+  margin-top: 1.5rem;
+  padding: 1.5rem;
+}
+.fiados-v2-backup h2 { font-size: 1.15rem; margin-bottom: .5rem; }
+.fiados-v2-backup p { line-height: 1.5; }
+.fiados-v2-backup-actions { display: flex; flex-wrap: wrap; gap: .75rem; margin-top: 1rem; }
+.btn-secondary { background: #334155; color: #f8fafc; }
+.btn-secondary:hover { background: #475569; }
+.fiados-v2-status { margin-top: .75rem; font-size: .9rem; }
+@media (max-width: 768px) {
+  .navbar { position: sticky; top: 0; z-index: 20; background: rgba(15,23,42,.96); }
+  .logo { font-size: 1.1rem; padding: 0; }
+  .content { padding: 1rem; padding-bottom: 2rem; }
+  .nav-links { gap: .25rem; }
+  .nav-item { min-width: 44px; min-height: 44px; justify-content: center; }
+  .stats-grid { grid-template-columns: 1fr; gap: .8rem; }
+  .stat-card { padding: 1rem; }
+  .stat-info h2 { font-size: 1.5rem; }
+  .fiados-v2-backup-actions { flex-direction: column; }
+  .fiados-v2-backup-actions .btn { width: 100%; }
+  .transaction-item { gap: .75rem; padding: .8rem .25rem; }
+  .tx-amount { font-size: .95rem; text-align: right; }
+}
+
+
+/* Fiados 2.0 — Supabase account panel */
+.fiados-cloud-panel { margin: 1.5rem 0; padding: 1.5rem; }
+.fiados-cloud-panel h2 { font-size: 1.15rem; margin-bottom: .35rem; }
+.fiados-cloud-panel .input-group { margin: 1rem 0; }
+.fiados-cloud-panel .input-group input { width: 100%; min-height: 44px; }
+.fiados-cloud-actions { display: flex; flex-wrap: wrap; gap: .75rem; margin-top: .75rem; }
+.fiados-cloud-actions .btn { min-height: 44px; }
+.fiados-cloud-status, #fiados-cloud-status { margin-top: .85rem; line-height: 1.5; overflow-wrap: anywhere; }
+#fiados-cloud-status[data-error="true"] { color: #fca5a5; }
+.cloud-user { font-size: .85rem; color: var(--text-secondary); overflow-wrap: anywhere; }
+[hidden] { display: none !important; }
+@media (max-width: 600px) {
+  .fiados-cloud-panel { padding: 1rem; }
+  .fiados-cloud-actions { flex-direction: column; }
+  .fiados-cloud-actions .btn { width: 100%; }
+}

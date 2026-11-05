@@ -13,6 +13,7 @@ class DataStore {
     }
     static saveClients(clients) {
         localStorage.setItem('fiado_clients', JSON.stringify(clients));
+        if (window.FiadosCloud) window.FiadosCloud.syncAfterLocalSave();
     }
     static addClient(client) {
         const clients = this.getClients();
@@ -25,6 +26,7 @@ class DataStore {
     }
     static saveTransactions(txs) {
         localStorage.setItem('fiado_txs', JSON.stringify(txs));
+        if (window.FiadosCloud) window.FiadosCloud.syncAfterLocalSave();
     }
     static addTransaction(tx) {
         const txs = this.getTransactions();
