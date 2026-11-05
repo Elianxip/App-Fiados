@@ -90,6 +90,7 @@
     const localCount = local.clients.length + local.transactions.length;
     const remoteCount = remote.clients.length + remote.transactions.length;
     if (localCount && !remoteCount) {
+      state.mode = 'pending-upload';
       setStatus('Cuenta conectada. La nube está vacía y este dispositivo tiene ' + local.clients.length + ' clientes y ' + local.transactions.length + ' movimientos. Pulsa “Subir datos de este dispositivo” para migrarlos.');
       $('fiados-upload-local').hidden = false;
       $('fiados-download-cloud').hidden = true;
@@ -99,6 +100,18 @@
       $('fiados-upload-local').hidden = true;
       $('fiados-download-cloud').hidden = false;
     } else if (localCount && remoteCount) {
+      const normalize = (x) => JSON.stringify({
+        clients: [...x.clients].sort((a,b) => String(a.id).localeCompare(String(b.id))),
+        transactions: [...x.transactions].sort((a,b) => String(a.id).localeCompare(String(b.id)))
+      });
+      if (normalize(local) === normalize(remote)) {
+        state.mode = 'ready';
+        setStatus('Este dispositivo ya está sincronizado con la nube.');
+        $('fiados-upload-local').hidden = true;
+        $('fiados-download-cloud').hidden = true;
+        return;
+      }
+      state.mode = 'paused-conflict';
       setStatus('Hay datos en ambos lados (' + localCount + ' locales y ' + remoteCount + ' en la nube). Por seguridad se pausó la sincronización automática. Exporta ambos respaldos y revisaremos la combinación antes de continuar.', true);
       $('fiados-upload-local').hidden = true;
       $('fiados-download-cloud').hidden = true;
@@ -145,6 +158,7 @@
       state.mode = 'ready';
       setStatus('Migración inicial completada. Los datos locales se conservaron y ya existe una copia en la nube.');
       $('fiados-upload-local').hidden = true;
+      subscribeRealtime();
     } catch (e) { setStatus(e.message || 'Falló la migración.', true); }
     finally { setBusy(false); }
   };
@@ -160,6 +174,7 @@
       state.mode = 'ready';
       setStatus('Datos descargados y cargados en este dispositivo.');
       $('fiados-download-cloud').hidden = true;
+      subscribeRealtime();
     } catch (e) { setStatus(e.message || 'Falló la descarga.', true); }
     finally { setBusy(false); }
   };
