@@ -62,6 +62,40 @@
                     </div>
                 </div>
 
+        <section id="fiados-cloud-panel" class="glass fiados-cloud-panel" aria-labelledby="fiados-cloud-title">
+            <div class="flex-between">
+                <div>
+                    <h2 id="fiados-cloud-title">Sincronización segura</h2>
+                    <p id="fiados-cloud-mode">Solo almacenamiento local</p>
+                </div>
+                <span id="fiados-cloud-user" class="cloud-user">Sin conectar</span>
+            </div>
+            <div id="fiados-auth">
+                <form id="fiados-auth-form">
+                    <div class="input-group">
+                        <label for="fiados-email">Correo electrónico</label>
+                        <input id="fiados-email" type="email" autocomplete="email" required placeholder="tu@correo.com">
+                    </div>
+                    <div class="input-group">
+                        <label for="fiados-password">Contraseña</label>
+                        <input id="fiados-password" type="password" autocomplete="current-password" minlength="8" required placeholder="Mínimo 8 caracteres">
+                    </div>
+                    <div class="fiados-cloud-actions">
+                        <button class="btn btn-primary" type="submit" data-cloud-action>Iniciar sesión</button>
+                        <button class="btn btn-secondary" type="button" id="fiados-signup" data-cloud-action>Crear cuenta</button>
+                    </div>
+                </form>
+            </div>
+            <div id="fiados-sync-controls" hidden>
+                <div class="fiados-cloud-actions">
+                    <button class="btn btn-primary" id="fiados-upload-local" type="button" hidden data-cloud-action>Subir datos de este dispositivo</button>
+                    <button class="btn btn-secondary" id="fiados-download-cloud" type="button" hidden data-cloud-action>Descargar datos de la nube</button>
+                    <button class="btn btn-secondary" id="fiados-signout" type="button" data-cloud-action>Cerrar sesión</button>
+                </div>
+            </div>
+            <p id="fiados-cloud-status" class="fiados-v2-status" role="status">Preparando conexión…</p>
+        </section>
+
                 <div class="recent-transactions glass">
                     <h2>Últimos Movimientos</h2>
                     <div class="transaction-list" id="recent-transactions-list">
@@ -192,6 +226,9 @@
         </div>
     </div>
 
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="supabase-config.js"></script>
+    <script src="fiados-cloud.js"></script>
     <script src="app.js"></script>
     <script src="fiados-v2-foundation.js"></script>
 </body>
