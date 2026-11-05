@@ -1,0 +1,16 @@
+{
+  "id": "./",
+  "name": "Fiados 2.0 — ElianX Solutions",
+  "short_name": "Fiados 2.0",
+  "description": "Administración de clientes, créditos y cobros.",
+  "lang": "es-DO",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#0f172a",
+  "orientation": "portrait",
+  "icons": [
+    { "src": "./icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}
