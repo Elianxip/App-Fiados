@@ -5,7 +5,7 @@
   const CLIENTS_KEY = 'fiado_clients';
   const TX_KEY = 'fiado_txs';
   const config = window.FIADOS_SUPABASE_CONFIG;
-  const state = { client: null, user: null, mode: 'local', busy: false, channel: null };
+  const state = { client: null, user: null, mode: 'local', busy: false, channel: null, pendingSync: false };
   const $ = (id) => document.getElementById(id);
   const read = (key) => {
     try { const v = JSON.parse(localStorage.getItem(key) || '[]'); return Array.isArray(v) ? v : []; }
@@ -183,15 +183,22 @@
     await state.client.auth.signOut();
   };
   const syncCurrentLocalChange = async () => {
-    if (!state.user || state.mode !== 'ready') return;
+    if (!state.user) return;
+    if (state.mode === 'syncing') { state.pendingSync = true; return; }
+    if (state.mode !== 'ready') return;
     state.mode = 'syncing';
     try {
       await upsertLocalToCloud(localData());
       state.mode = 'ready';
       setStatus('Cambios guardados y sincronizados.');
+      if (state.pendingSync) {
+        state.pendingSync = false;
+        await syncCurrentLocalChange();
+      }
     } catch (e) {
       state.mode = 'sync-error';
-      setStatus('Guardado localmente, pero falló la sincronización: ' + (e.message || 'error') + '. No cierres esta sesión hasta recuperar conexión.', true);
+      state.pendingSync = false;
+      setStatus('Guardado localmente, pero falló la sincronización: ' + (e.message || 'error') + '. Revisa la conexión antes de seguir trabajando en otro dispositivo.', true);
     }
   };
   const subscribeRealtime = () => {
