@@ -114,7 +114,7 @@
       const c=clients()[i];if(!c)return;
       const b=balance(c.id);const due=dueItems().filter(t=>t.clientId===c.id);
       const overdue=due.some(t=>new Date(t.dueAt).getTime()<Date.now());
-      const tag=document.createElement('small');tag.textContent=overdue?'Riesgo: revisar vencimiento':b<=0?'Al día':'Saldo pendiente';
+      el.querySelectorAll('.fiados-risk-label').forEach(n=>n.remove()); const tag=document.createElement('small');tag.className='fiados-risk-label';tag.textContent=overdue?'Riesgo: revisar vencimiento':b<=0?'Al día':'Saldo pendiente';
       tag.style.display='block';tag.style.marginTop='.5rem';tag.style.color=overdue?'#f87171':b<=0?'#34d399':'#93c5fd';el.appendChild(tag);
     });
   };
