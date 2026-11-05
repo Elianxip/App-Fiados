@@ -124,5 +124,17 @@ create policy "push_subscriptions_owner_all" on public.push_subscriptions
 create policy "audit_events_owner_read" on public.audit_events
   for select to authenticated using (owner_id = (select auth.uid()));
 
--- Las inserciones/actualizaciones de reminder_events y audit_events se reservan
--- al backend de confianza (service role), nunca exponer service_role en frontend.
+-- Privilegios explícitos: RLS y GRANT deben trabajar juntos.
+revoke all on public.clients, public.transactions, public.reminder_preferences,
+  public.reminder_events, public.push_subscriptions, public.audit_events from anon;
+
+grant select, insert, update, delete on public.clients to authenticated;
+grant select, insert, update, delete on public.transactions to authenticated;
+grant select, insert, update, delete on public.reminder_preferences to authenticated;
+grant select on public.reminder_events to authenticated;
+grant select, insert, update, delete on public.push_subscriptions to authenticated;
+grant select on public.audit_events to authenticated;
+
+-- El backend de confianza podrá insertar eventos; nunca exponer su clave en frontend.
+grant insert, update on public.reminder_events to service_role;
+grant insert on public.audit_events to service_role;
