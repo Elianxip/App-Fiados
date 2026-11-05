@@ -5,7 +5,7 @@
   const CLIENTS_KEY = 'fiado_clients';
   const TX_KEY = 'fiado_txs';
   const config = window.FIADOS_SUPABASE_CONFIG;
-  const state = { client: null, user: null, mode: 'local', busy: false };
+  const state = { client: null, user: null, mode: 'local', busy: false, channel: null };
   const $ = (id) => document.getElementById(id);
   const read = (key) => {
     try { const v = JSON.parse(localStorage.getItem(key) || '[]'); return Array.isArray(v) ? v : []; }
@@ -169,8 +169,32 @@
   };
   const syncCurrentLocalChange = async () => {
     if (!state.user || state.mode !== 'ready') return;
-    try { await upsertLocalToCloud(localData()); }
-    catch (e) { setStatus('Guardado localmente, pero falló la sincronización: ' + (e.message || 'error'), true); }
+    state.mode = 'syncing';
+    try {
+      await upsertLocalToCloud(localData());
+      state.mode = 'ready';
+      setStatus('Cambios guardados y sincronizados.');
+    } catch (e) {
+      state.mode = 'sync-error';
+      setStatus('Guardado localmente, pero falló la sincronización: ' + (e.message || 'error') + '. No cierres esta sesión hasta recuperar conexión.', true);
+    }
+  };
+  const subscribeRealtime = () => {
+    if (state.channel) state.client.removeChannel(state.channel);
+    if (!state.user) return;
+    const uid = state.user.id;
+    state.channel = state.client.channel('fiados-owner-' + uid)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'clients', filter: 'owner_id=eq.' + uid }, async () => {
+        if (state.mode !== 'ready') return;
+        try { const fresh = await fetchCloud(); replaceLocal(fresh); setStatus('Clientes actualizados desde tus otros dispositivos.'); }
+        catch (e) { setStatus('No se pudo actualizar la vista: ' + e.message, true); }
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'transactions', filter: 'owner_id=eq.' + uid }, async () => {
+        if (state.mode !== 'ready') return;
+        try { const fresh = await fetchCloud(); replaceLocal(fresh); setStatus('Movimientos actualizados desde tus otros dispositivos.'); }
+        catch (e) { setStatus('No se pudo actualizar la vista: ' + e.message, true); }
+      })
+      .subscribe();
   };
   const init = async () => {
     const panel = $('fiados-cloud-panel');
@@ -192,14 +216,14 @@
     state.user = data && data.session ? data.session.user : null;
     refreshSessionUI();
     if (state.user) {
-      try { await inspectAndOfferMigration(); } catch (e) { setStatus('Conectado, pero no se pudo leer la base de datos. Revisa que ejecutaste la migración SQL y las políticas RLS. ' + (e.message || ''), true); }
+      try { await inspectAndOfferMigration(); if (state.mode === 'ready') subscribeRealtime(); } catch (e) { setStatus('Conectado, pero no se pudo leer la base de datos. Revisa que ejecutaste la migración SQL y las políticas RLS. ' + (e.message || ''), true); }
     } else setStatus('Conecta tu cuenta para habilitar la sincronización. Tus datos locales no se enviarán sin tu autorización.');
     state.client.auth.onAuthStateChange((_event, session) => {
       state.user = session ? session.user : null;
       state.mode = 'local';
       refreshSessionUI();
-      if (state.user) setTimeout(() => inspectAndOfferMigration().catch(e => setStatus(e.message, true)), 0);
-      else setStatus('Sesión cerrada. Tus datos locales permanecen disponibles.');
+      if (state.user) setTimeout(async () => { try { await inspectAndOfferMigration(); if (state.mode === 'ready') subscribeRealtime(); } catch(e) { setStatus(e.message, true); } }, 0);
+      else { if (state.channel) state.client.removeChannel(state.channel); state.channel = null; setStatus('Sesión cerrada. Tus datos locales permanecen disponibles.'); }
     });
     window.FiadosCloud = {
       syncAfterLocalSave: syncCurrentLocalChange,
