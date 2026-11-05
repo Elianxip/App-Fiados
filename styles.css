@@ -392,3 +392,21 @@ p { color: var(--text-secondary); }
   .transaction-item { gap: .75rem; padding: .8rem .25rem; }
   .tx-amount { font-size: .95rem; text-align: right; }
 }
+
+
+/* Fiados 2.0 — Supabase account panel */
+.fiados-cloud-panel { margin: 1.5rem 0; padding: 1.5rem; }
+.fiados-cloud-panel h2 { font-size: 1.15rem; margin-bottom: .35rem; }
+.fiados-cloud-panel .input-group { margin: 1rem 0; }
+.fiados-cloud-panel .input-group input { width: 100%; min-height: 44px; }
+.fiados-cloud-actions { display: flex; flex-wrap: wrap; gap: .75rem; margin-top: .75rem; }
+.fiados-cloud-actions .btn { min-height: 44px; }
+.fiados-cloud-status, #fiados-cloud-status { margin-top: .85rem; line-height: 1.5; overflow-wrap: anywhere; }
+#fiados-cloud-status[data-error="true"] { color: #fca5a5; }
+.cloud-user { font-size: .85rem; color: var(--text-secondary); overflow-wrap: anywhere; }
+[hidden] { display: none !important; }
+@media (max-width: 600px) {
+  .fiados-cloud-panel { padding: 1rem; }
+  .fiados-cloud-actions { flex-direction: column; }
+  .fiados-cloud-actions .btn { width: 100%; }
+}
