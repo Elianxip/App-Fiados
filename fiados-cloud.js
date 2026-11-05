@@ -27,11 +27,11 @@
   const txRows = (userId, txs) => txs.map(t => ({
     id: String(t.id), owner_id: userId, client_id: String(t.clientId),
     type: t.type, amount: Number(t.amount), description: String(t.desc || ''),
-    occurred_at: new Date(Number(t.date)).toISOString(), due_at: null
+    occurred_at: new Date(Number(t.date)).toISOString(), due_at: t.dueAt || null
   }));
   const toLocal = (clients, txs) => ({
     clients: clients.map(c => ({ id: c.id, name: c.name, phone: c.phone || '', createdAt: new Date(c.created_at).getTime() })),
-    transactions: txs.map(t => ({ id: t.id, clientId: t.client_id, type: t.type, amount: Number(t.amount), desc: t.description || '', date: new Date(t.occurred_at).getTime() }))
+    transactions: txs.map(t => ({ id: t.id, clientId: t.client_id, type: t.type, amount: Number(t.amount), desc: t.description || '', date: new Date(t.occurred_at).getTime(), dueAt: t.due_at || null }))
   });
   const validate = (data) => {
     const ids = new Set(data.clients.map(c => String(c.id)));
@@ -49,7 +49,7 @@
     const uid = state.user.id;
     const [c, t] = await Promise.all([
       state.client.from('clients').select('id,name,phone,created_at').eq('owner_id', uid),
-      state.client.from('transactions').select('id,client_id,type,amount,description,occurred_at').eq('owner_id', uid)
+      state.client.from('transactions').select('id,client_id,type,amount,description,occurred_at,due_at').eq('owner_id', uid)
     ]);
     if (c.error) throw c.error;
     if (t.error) throw t.error;
