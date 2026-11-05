@@ -432,3 +432,40 @@ p { color: var(--text-secondary); }
  .glass,.stat-card { background:#fff!important;color:#111!important;box-shadow:none!important;border:1px solid #ddd!important; }
  p,.stat-info h3 { color:#333!important; }
 }
+
+
+/* WhatsApp + agenda de cobros */
+.fiados-agenda-panel{padding:1.1rem;margin:1rem 0}
+.fiados-agenda-top{display:flex;justify-content:space-between;align-items:center;gap:1rem}
+.fiados-agenda-top h2{font-size:1.2rem;margin-bottom:.35rem}
+.fiados-agenda-filters{display:flex;flex-wrap:wrap;gap:.5rem;margin:1rem 0}
+.fiados-filter{border:1px solid var(--glass-border);background:#1e293b;color:var(--text-secondary);border-radius:999px;padding:.6rem .9rem;cursor:pointer}
+.fiados-filter.active{background:var(--accent-color);color:#fff;border-color:var(--accent-color)}
+.fiados-due-card{display:flex;justify-content:space-between;align-items:center;gap:1rem;padding:1rem 0;border-top:1px solid var(--glass-border)}
+.fiados-due-title{display:flex;align-items:center;gap:.6rem;flex-wrap:wrap}
+.fiados-due-title strong{font-size:1.05rem}
+.fiados-due-main p{font-size:.88rem;margin:.35rem 0}
+.fiados-due-balance{display:block;margin-top:.35rem;font-size:1.15rem}
+.fiados-status{font-size:.75rem;font-weight:700;border-radius:999px;padding:.25rem .55rem;background:#334155}
+.fiados-status.overdue{background:rgba(239,68,68,.18);color:#fca5a5}
+.fiados-status.today{background:rgba(245,158,11,.18);color:#fcd34d}
+.fiados-status.upcoming{background:rgba(59,130,246,.18);color:#93c5fd}
+.fiados-no-phone,.fiados-agenda-note,.fiados-wa-hint{font-size:.85rem;color:var(--text-secondary)}
+.fiados-agenda-note{margin-top:1rem;line-height:1.5}
+.fiados-empty{padding:1.5rem 0;color:var(--text-secondary)}
+.fiados-agenda-shortcuts{display:flex;gap:.75rem;margin-top:1rem;flex-wrap:wrap}
+.fiados-wa-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.78);backdrop-filter:blur(5px);z-index:2000;display:flex;align-items:center;justify-content:center;padding:1rem}
+.fiados-wa-backdrop[hidden]{display:none}
+.fiados-wa-modal{width:min(100%,520px);padding:1.25rem}
+.fiados-wa-modal h2{font-size:1.2rem}
+.fiados-wa-modal textarea{width:100%;resize:vertical;min-height:150px;margin:1rem 0;padding:.9rem;background:#0b1220;color:#f8fafc;border:1px solid var(--glass-border);border-radius:10px;font:inherit;line-height:1.5}
+.fiados-wa-actions{display:flex;justify-content:flex-end;gap:.75rem;flex-wrap:wrap}
+.fiados-wa-actions a{text-decoration:none}
+@media(max-width:760px){
+ .fiados-agenda-top{align-items:flex-start;flex-direction:column}
+ .fiados-due-card{align-items:stretch;flex-direction:column}
+ .fiados-due-card .btn{width:100%}
+ .fiados-agenda-shortcuts,.fiados-agenda-shortcuts .btn{width:100%}
+ .fiados-wa-actions{flex-direction:column}
+ .fiados-wa-actions>*{width:100%;text-align:center}
+}
