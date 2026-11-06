@@ -1,5 +1,5 @@
-const CACHE = 'fiados-android-pwa-v6-offline';
-const ASSETS = ['./', './index.html', './styles.css', './app.js', './fiados-v2-foundation.js', './fiados-pro.js', './fiados-plans.js', './fiados-suite.js', './fiados-modules-sync.js', './fiados-cloud.js', './supabase-config.js', './manifest.webmanifest', './icon.svg', './pwa.js'];
+const CACHE = 'fiados-android-pwa-v7-offline';
+const ASSETS = ['./', './index.html', './styles.css', './vendor/qrcode.js', './app.js', './fiados-v2-foundation.js', './fiados-pro.js', './fiados-plans.js', './fiados-suite.js', './fiados-modules-sync.js', './fiados-cloud.js', './supabase-config.js', './manifest.webmanifest', './icon.svg', './pwa.js'];
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(ASSETS)).then(() => self.skipWaiting()));
 });
