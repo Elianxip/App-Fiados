@@ -67,6 +67,24 @@ function renderDevices(){
  const status=window.FiadosCloud?.getStatus?.()||{signedIn:false,mode:'local'};
  root.innerHTML=panel('Este dispositivo','<p><b>Navegador:</b> '+esc(navigator.userAgent.slice(0,110))+'</p><p><b>Conexión:</b> '+(navigator.onLine?'En línea':'Sin conexión')+'</p><p><b>Supabase:</b> '+(status.signedIn?'Cuenta conectada':'No conectado')+' · '+esc(status.mode)+'</p><p><b>Último respaldo:</b> '+esc(read(K.devices,{}).backupAt||'No registrado')+'</p>'+btn('device-backup','Registrar respaldo descargado','btn btn-secondary')+'<p class="suite-muted">La sincronización real de gastos, cobradores, puntos, planes y recibos requiere tablas nuevas con RLS y pruebas de aislamiento. No se compartirán datos entre cuentas desde el navegador.</p>');
 }
+function renderModuleLauncher(){
+ const dashboard=document.getElementById('view-dashboard');if(!dashboard||document.getElementById('fiados-module-launcher'))return;
+ const items=[
+  ['agenda','Agenda de cobros','Vencimientos y seguimiento'],
+  ['reportes','Reportes','Cartera y exportaciones'],
+  ['gastos','Gastos','Registra egresos'],
+  ['finanzas','Finanzas','Ingresos y proyección'],
+  ['recibos','Recibos','Comprobantes de abonos'],
+  ['equipo','Cobradores','Responsables y rendimiento'],
+  ['recompensas','Recompensas','Puntos promocionales'],
+  ['seguridad','Seguridad','Bloqueo con PIN'],
+  ['dispositivos','Dispositivo','Conexión y respaldo']
+ ];
+ const section=document.createElement('section');section.id='fiados-module-launcher';section.className='glass module-launcher';
+ section.innerHTML='<h2>Todas las funciones de Fiados 2.0</h2><p>Entra directamente a cada herramienta. Desliza el menú inferior para recorrer las secciones.</p><div class="module-launcher-grid">'+items.map(([id,name,desc])=>'<button type="button" class="module-shortcut" data-module-view="'+id+'"><strong>'+name+'</strong><span>'+desc+'</span></button>').join('')+'</div>';
+ dashboard.appendChild(section);
+ section.addEventListener('click',e=>{const b=e.target.closest('[data-module-view]');if(b&&window.App?.navigate)window.App.navigate(b.dataset.moduleView)});
+}
 function renderAll(){renderExpenses();renderFinance();renderReceipts();renderTeam();renderRewards();renderSecurity();renderDevices()}
 function receipt(id){
  const t=txs().find(x=>x.id===id),c=t&&clients().find(x=>x.id===t.clientId);if(!t||!c)return;
@@ -102,6 +120,7 @@ function bind(){
 function init(){
  if(!window.App||!window.DataStore)return;
  ensureViews();
+ renderModuleLauncher();
  const nav=document.querySelector('.nav-links');
  nav.addEventListener('click',e=>{const b=e.target.closest('[data-view]');if(!b)return;const id=b.dataset.view;if(!document.getElementById('view-'+id))return;document.querySelectorAll('.view').forEach(v=>v.classList.toggle('active',v.id==='view-'+id));document.querySelectorAll('.nav-item').forEach(x=>x.classList.toggle('active',x===b));if(id!=='dashboard'&&id!=='clients'&&id!=='client-detail')renderAll()});
  bind();
