@@ -264,13 +264,16 @@
         if (error) throw error;
         return data || [];
       },
-      syncRewardSettings: async (rate) => {
+      fetchRewardSettings: async () => {
+        if (!state.user) throw new Error('Cuenta no conectada.');
+        const { data, error } = await state.client.from('reward_settings').select('*').eq('owner_id',state.user.id).maybeSingle();
+        if (error) throw error;
+        return data;
+      },
+      saveRewardSettings: async (rate) => {
         if (!state.user) throw new Error('Cuenta no conectada.');
         const { error } = await state.client.from('reward_settings').upsert({owner_id:state.user.id,points_per_hundred:Number(rate)||0},{onConflict:'owner_id'});
         if (error) throw error;
-        const { data, error: readError } = await state.client.from('reward_settings').select('*').eq('owner_id',state.user.id).maybeSingle();
-        if (readError) throw readError;
-        return data;
       }
     };
   };
