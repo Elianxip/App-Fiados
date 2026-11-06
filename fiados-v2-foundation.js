@@ -28,6 +28,7 @@
     collectors: readArray('fiados_collectors'),
     rewardSettings: readValue('fiados_rewards', {rate:1}),
     receipts: readArray('fiados_receipts'),
+    whatsappLogs: readArray('fiados_whatsapp_logs'),
     devices: readValue('fiados_devices', {})
   });
 
@@ -44,7 +45,7 @@
       ids.add(c.id);
     }
     if (data.paymentPlans !== undefined && !Array.isArray(data.paymentPlans)) throw new Error('Los planes de pago del respaldo no son válidos.');
-    for (const key of ['expenses','collectors','receipts']) if (data[key] !== undefined && !Array.isArray(data[key])) throw new Error('El módulo '+key+' del respaldo no es válido.');
+    for (const key of ['expenses','collectors','receipts','whatsappLogs']) if (data[key] !== undefined && !Array.isArray(data[key])) throw new Error('El módulo '+key+' del respaldo no es válido.');
     if (data.rewardSettings !== undefined && (!data.rewardSettings || typeof data.rewardSettings !== 'object' || Array.isArray(data.rewardSettings))) throw new Error('La configuración de recompensas del respaldo no es válida.');
     if (data.devices !== undefined && (!data.devices || typeof data.devices !== 'object' || Array.isArray(data.devices))) throw new Error('Los dispositivos del respaldo no son válidos.');
     const txIds = new Set();
@@ -129,6 +130,7 @@
       localStorage.setItem(TX_KEY, JSON.stringify(data.transactions));
       if (Array.isArray(data.paymentPlans)) localStorage.setItem('fiados_payment_plans', JSON.stringify(data.paymentPlans));
       for (const key of ['expenses','collectors','receipts']) if (Array.isArray(data[key])) localStorage.setItem('fiados_'+key, JSON.stringify(data[key]));
+      if (Array.isArray(data.whatsappLogs)) localStorage.setItem('fiados_whatsapp_logs', JSON.stringify(data.whatsappLogs));
       if (data.rewardSettings) localStorage.setItem('fiados_rewards', JSON.stringify(data.rewardSettings));
       if (data.devices) localStorage.setItem('fiados_devices', JSON.stringify(data.devices));
       status.textContent = 'Respaldo restaurado. Recargando la aplicación…';
