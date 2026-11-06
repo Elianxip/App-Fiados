@@ -82,9 +82,10 @@
     if(!plan){root.innerHTML='<p class="fiados-plan-empty">Todavía no hay un plan de pago para este cliente.</p>';return;}
     const rows=installmentsFor(plan);
     const paid=rows.reduce((s,x)=>s+x.paid,0), remaining=Math.max(0,plan.total-paid);
-    root.innerHTML='<div class="fiados-plan-summary"><span>Plan: '+money(plan.total)+'</span><span>Pagado: '+money(paid)+'</span><strong>Restante del plan: '+money(remaining)+'</strong></div><div class="fiados-installments">'+rows.map(x=>'<article class="fiados-installment"><div><strong>Cuota '+(x.index+1)+'</strong><small>'+esc(dateLabel(x.dueDate))+'</small></div><div><strong>'+money(x.amount)+'</strong><small>'+esc(x.status)+(x.remaining>0?' · Restan '+money(x.remaining):'')+'</small></div></article>').join('')+'</div><button type="button" class="btn btn-secondary" id="fiados-plan-remove">Cerrar plan</button>';
-    $('fiados-plan-remove').addEventListener('click',()=>{
-      if(!confirm('¿Cerrar este plan? No se borrarán clientes, fiados ni abonos.'))return;
+    root.innerHTML='<div class="fiados-plan-summary"><span>Plan: '+money(plan.total)+'</span><span>Pagado: '+money(paid)+'</span><strong>Restante del plan: '+money(remaining)+'</strong></div><div class="fiados-installments">'+rows.map(x=>'<article class="fiados-installment"><div><strong>Cuota '+(x.index+1)+'</strong><small>'+esc(dateLabel(x.dueDate))+'</small></div><div><strong>'+money(x.amount)+'</strong><small>'+esc(x.status)+(x.remaining>0?' · Restan '+money(x.remaining):'')+'</small></div></article>').join('')+'</div>'+(plan.closedAt?'<p class="fiados-plan-note">Este plan está cerrado y se conserva como historial.</p>':'<button type="button" class="btn btn-secondary" id="fiados-plan-remove">Cerrar plan</button>')+'<details><summary>Historial de planes ('+clientPlans.length+')</summary>'+clientPlans.map(p=>'<p>'+money(p.total)+' · '+esc(p.frequency)+' · '+new Date(p.createdAt).toLocaleDateString('es-DO')+(p.closedAt?' · Cerrado':' · Activo')+'</p>').join('')+'</details>';
+    const closeButton=$('fiados-plan-remove');
+    if(closeButton)closeButton.addEventListener('click',()=>{
+      if(!confirm('¿Cerrar este plan? No se borrarán clientes, fiados, abonos ni el historial del plan.'))return;
       savePlans(readPlans().map(p=>p.id===plan.id?{...p,closedAt:Date.now()}:p));renderPlans();
     });
   };
