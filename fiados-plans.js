@@ -86,7 +86,7 @@
   };
   const shareStatementWhatsApp = () => {
     const client=clientById(App.currentClientId);if(!client)return;
-    let phone=String(client.phone||'').replace(/\\D/g,'');
+    let phone=String(client.phone||'').replace(/\D/g,'');
     if(phone.length===10)phone='1'+phone;
     if(phone.length<11||phone.length>15){alert('Este cliente no tiene un teléfono válido. Actualiza su número en la ficha antes de compartir.');return;}
     const txs=DataStore.getClientTransactions(client.id),balance=DataStore.getClientBalance(client.id);
@@ -94,7 +94,7 @@
       const d=new Intl.DateTimeFormat('es-DO',{dateStyle:'short',timeZone:'America/Santo_Domingo'}).format(new Date(t.date));
       return d+' · '+(t.type==='DEBT'?'Fiado':'Abono')+' · '+(t.desc||'Movimiento')+' · '+money(t.amount);
     });
-    const message=['FIADOS 2.0 — Estado de cuenta','Cliente: '+client.name,'Teléfono: '+(client.phone||'No registrado'),'','Movimientos:',...lines,'','SALDO PENDIENTE: '+money(balance),'Generado: '+new Date().toLocaleString('es-DO'),'Documento informativo. El envío debe confirmarse en WhatsApp.'].join('\\n');
+    const message=['FIADOS 2.0 — Estado de cuenta','Cliente: '+client.name,'Teléfono: '+(client.phone||'No registrado'),'','Movimientos:',...lines,'','SALDO PENDIENTE: '+money(balance),'Generado: '+new Date().toLocaleString('es-DO'),'Documento informativo. El envío debe confirmarse en WhatsApp.'].join('\n');
     window.open('https://wa.me/'+phone+'?text='+encodeURIComponent(message),'_blank','noopener,noreferrer');
   };
   const printStatement = () => {
