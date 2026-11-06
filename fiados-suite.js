@@ -214,7 +214,7 @@ function init(){
  const detail=document.getElementById('view-client-detail');if(detail&&!document.getElementById('fiados-scan-entry')){const b=document.createElement('button');b.id='fiados-scan-entry';b.className='btn btn-secondary';b.textContent='Escanear código de barras';b.onclick=scanBarcode;detail.querySelector('.actions-row')?.append(b)}
  // Selector de cobrador para registrar la atribución de nuevos pagos.
  const team=read(K.collectors);if(team.length){const select=document.createElement('select');select.id='fiados-active-collector';select.innerHTML='<option value="">Sin asignar cobrador</option>'+team.map(x=>'<option value="'+esc(x.id)+'">'+esc(x.name)+'</option>').join('');select.value=read(K.settings,{}).activeCollectorId||'';select.onchange=()=>save(K.settings,{...settings(),activeCollectorId:select.value});document.getElementById('view-dashboard')?.append(select)}
- if(settings().pinHash){let idle=0;['click','keydown','touchstart'].forEach(ev=>document.addEventListener(ev,()=>{idle=0},{passive:true}));document.addEventListener('visibilitychange',()=>{if(document.hidden)lockScreen()});setInterval(()=>{idle++;if(idle>=30&&!document.getElementById('fiados-pin-overlay'))lockScreen()},60000)}
+ if(settings().pinHash){let idle=0;lockScreen();['click','keydown','touchstart'].forEach(ev=>document.addEventListener(ev,()=>{idle=0},{passive:true}));document.addEventListener('visibilitychange',()=>{if(document.hidden)lockScreen()});setInterval(()=>{idle++;if(idle>=30&&!document.getElementById('fiados-pin-overlay'))lockScreen()},60000)}
  renderAll();
 }
 document.addEventListener('DOMContentLoaded',init);
