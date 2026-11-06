@@ -102,6 +102,12 @@
       setStatus('Encontramos ' + remote.clients.length + ' clientes y ' + remote.transactions.length + ' movimientos en la nube. Pulsa “Descargar datos de la nube” para traerlos a este dispositivo.');
       $('fiados-upload-local').hidden = true;
       $('fiados-download-cloud').hidden = false;
+    } else if (localCount && remoteCount && localStorage.getItem(PENDING_KEY) === '1') {
+      mergeBaseWithoutDeleting(remote);
+      state.mode = 'ready';
+      setStatus('Se recuperaron cambios pendientes. Se conservaron los datos del celular y se preparó la sincronización.');
+      $('fiados-upload-local').hidden = true;
+      $('fiados-download-cloud').hidden = true;
     } else if (localCount && remoteCount) {
       const normalize = (x) => JSON.stringify({
         clients: [...x.clients].sort((a,b) => String(a.id).localeCompare(String(b.id))),
@@ -321,6 +327,6 @@
     if (state.user && localStorage.getItem(PENDING_KEY) === '1' && navigator.onLine && state.mode === 'ready') syncCurrentLocalChange();
   };
   window.addEventListener('online', () => { if (!state.client) init(); else resumeSync(); });
-  window.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') resumeSync(); });
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') resumeSync(); });
   document.addEventListener('DOMContentLoaded', init);
 })();
