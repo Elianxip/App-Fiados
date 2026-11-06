@@ -5,7 +5,10 @@
   const CLIENTS_KEY = 'fiado_clients';
   const TX_KEY = 'fiado_txs';
   const config = window.FIADOS_SUPABASE_CONFIG;
-  const state = { client: null, user: null, mode: 'local', busy: false, channel: null, pendingSync: false };
+  const state = { client: null, user: null, mode: 'local', busy: false, channel: null, pendingSync: false, initializing: false };
+  const PENDING_KEY = 'fiados_sync_pending_v1';
+  const markPending = () => localStorage.setItem(PENDING_KEY, '1');
+  const clearPending = () => localStorage.removeItem(PENDING_KEY);
   const $ = (id) => document.getElementById(id);
   const read = (key) => {
     try { const v = JSON.parse(localStorage.getItem(key) || '[]'); return Array.isArray(v) ? v : []; }
@@ -184,22 +187,36 @@
   };
   const syncCurrentLocalChange = async () => {
     if (!state.user) return;
+    markPending();
+    if (!navigator.onLine) { state.mode = 'offline-pending'; setStatus('Sin internet. Tus cambios están guardados en este celular y esperan sincronización.', true); return; }
     if (state.mode === 'syncing') { state.pendingSync = true; return; }
-    if (state.mode !== 'ready') return;
+    if (!['ready','sync-error','offline-pending'].includes(state.mode)) return;
     state.mode = 'syncing';
     try {
       await upsertLocalToCloud(localData());
       state.mode = 'ready';
-      setStatus('Cambios guardados y sincronizados.');
-      if (state.pendingSync) {
-        state.pendingSync = false;
-        await syncCurrentLocalChange();
-      }
+      clearPending();
+      setStatus('Cambios guardados y sincronizados con Supabase.');
+      if (window.FiadosModulesSync?.sync) window.FiadosModulesSync.sync().catch(e => setStatus('Datos principales sincronizados; módulos pendientes: ' + e.message, true));
+      if (state.pendingSync) { state.pendingSync = false; await syncCurrentLocalChange(); }
     } catch (e) {
-      state.mode = 'sync-error';
+      state.mode = navigator.onLine ? 'sync-error' : 'offline-pending';
       state.pendingSync = false;
-      setStatus('Guardado localmente, pero falló la sincronización: ' + (e.message || 'error') + '. Revisa la conexión antes de seguir trabajando en otro dispositivo.', true);
+      setStatus('Tus datos siguen guardados en el celular. La sincronización quedó pendiente: ' + (e.message || 'sin conexión') + '.', true);
     }
+  };
+  const resumeSync = async () => {
+    if (!navigator.onLine || !state.client || !state.user || state.busy) return;
+    try {
+      if (['local','sync-error','offline-pending'].includes(state.mode)) {
+        if (state.mode === 'local') {
+          await inspectAndOfferMigration();
+          if (state.mode === 'ready') subscribeRealtime();
+        }
+        if (localStorage.getItem(PENDING_KEY) === '1' && ['ready','sync-error','offline-pending'].includes(state.mode)) await syncCurrentLocalChange();
+      }
+      if (state.mode === 'ready' && window.FiadosModulesSync?.sync) await window.FiadosModulesSync.sync();
+    } catch (e) { setStatus('La conexión volvió, pero aún no se pudo sincronizar: ' + e.message, true); }
   };
   const mergeBaseWithoutDeleting = (remote) => {
     const local = localData();
@@ -227,12 +244,24 @@
       .on('postgres_changes', { event: '*', schema: 'public', table: 'transactions', filter: 'owner_id=eq.' + uid }, () => refresh('Movimientos'))
       .subscribe();
   };
+  const loadSupabaseLibrary = () => new Promise((resolve, reject) => {
+    if (window.supabase?.createClient) return resolve();
+    const existing = document.querySelector('script[data-fiados-supabase-loader]');
+    if (existing) { existing.addEventListener('load', resolve, {once:true}); existing.addEventListener('error', reject, {once:true}); return; }
+    const script = document.createElement('script');
+    script.src = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';
+    script.dataset.fiadosSupabaseLoader = 'true';
+    script.onload = resolve; script.onerror = () => reject(new Error('No se pudo descargar el cliente Supabase. La app seguirá funcionando localmente.'));
+    document.head.appendChild(script);
+  });
   const init = async () => {
     const panel = $('fiados-cloud-panel');
-    if (!panel) return;
-    if (!config || !window.supabase || !config.url || !config.publishableKey) {
-      setStatus('No se pudo cargar la configuración o la librería Supabase. La app sigue en modo local.', true);
-      return;
+    if (!panel || state.initializing) return;
+    state.initializing = true;
+    if (!config || !config.url || !config.publishableKey) { setStatus('Configuración de Supabase no disponible. Puedes seguir trabajando sin internet.', true); state.initializing = false; return; }
+    if (!window.supabase?.createClient) {
+      if (!navigator.onLine) { setStatus('Modo sin conexión activo. Tus datos se guardan en este celular; Supabase se conectará cuando vuelva internet.'); state.initializing = false; return; }
+      try { await loadSupabaseLibrary(); } catch (e) { setStatus(e.message, true); state.initializing = false; return; }
     }
     state.client = window.supabase.createClient(config.url, config.publishableKey, {
       auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
@@ -242,7 +271,10 @@
     $('fiados-upload-local').addEventListener('click', uploadLocal);
     $('fiados-download-cloud').addEventListener('click', downloadCloud);
     $('fiados-signout').addEventListener('click', signOut);
-    const { data, error } = await state.client.auth.getSession();
+    let sessionResult;
+    try { sessionResult = await state.client.auth.getSession(); }
+    catch (e) { setStatus('Sin conexión con Supabase. Los datos locales están disponibles y se sincronizarán al volver internet.', true); state.initializing = false; return; }
+    const { data, error } = sessionResult;
     if (error) setStatus(error.message, true);
     state.user = data && data.session ? data.session.user : null;
     refreshSessionUI();
@@ -285,6 +317,10 @@
         if (error) throw error;
       }
     };
+    state.initializing = false;
+    if (state.user && localStorage.getItem(PENDING_KEY) === '1' && navigator.onLine && state.mode === 'ready') syncCurrentLocalChange();
   };
+  window.addEventListener('online', () => { if (!state.client) init(); else resumeSync(); });
+  window.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') resumeSync(); });
   document.addEventListener('DOMContentLoaded', init);
 })();
