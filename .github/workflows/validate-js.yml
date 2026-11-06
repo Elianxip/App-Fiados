@@ -1,0 +1,27 @@
+name: Validate Fiados JavaScript
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main, fiados-2.0-complete-features]
+
+jobs:
+  syntax:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Check JavaScript syntax
+        run: |
+          set -e
+          for file in app.js fiados-cloud.js fiados-v2-foundation.js fiados-pro.js fiados-plans.js fiados-suite.js fiados-modules-sync.js pwa.js service-worker.js vendor/qrcode.js; do
+            echo "Checking $file"
+            node --check "$file"
+          done
+      - name: Check whitespace errors
+        run: git diff --check
