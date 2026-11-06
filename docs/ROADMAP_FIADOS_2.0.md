@@ -29,8 +29,8 @@
 
 5. **Bloqueo PIN / huella / rostro**
    - [x] PIN local protegido con PBKDF2; bloqueo al iniciar, al ocultar la app y por inactividad.
-   - [ ] Biometría WebAuthn con verificación segura de credenciales; requiere diseño y validación criptográfica, no se simula.
-   - Nota: el PIN protege esta instalación local; no sustituye autenticación del servidor ni protege frente a quien controle el almacenamiento del navegador.
+   - [x] Huella/rostro mediante autenticador de plataforma WebAuthn, con desafío fresco, comprobación de origen/RP ID, bandera de verificación de usuario y firma validada localmente con la clave pública.
+   - Nota: la biometría depende de que el celular/navegador ofrezca autenticador de plataforma. Es un bloqueo local, no autenticación de servidor; el PIN queda como respaldo.
 
 6. **Escáner de códigos de barras**
    - [x] Cámara trasera y lectura de EAN, UPC, Code 128 y QR en navegadores compatibles.
