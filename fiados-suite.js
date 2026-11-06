@@ -77,10 +77,45 @@ function renderSecurity(){
  const root=document.getElementById('suite-seguridad');if(!root)return;const s=settings();
  root.innerHTML=panel('Bloqueo con PIN','<form data-form="pin" class="suite-form"><p>El PIN se guarda como hash PBKDF2, nunca en texto plano. El bloqueo es local a este navegador.</p>'+field(s.pinHash?'Cambiar PIN':'Crear PIN','pin','password','minlength="4" maxlength="8" pattern="[0-9]{4,8}" inputmode="numeric"')+'<button class="btn btn-primary">Guardar PIN</button></form>'+(s.pinHash?btn('lock-now','Bloquear ahora','btn btn-secondary'):'')+'<p class="suite-muted">La biometría WebAuthn necesita un servidor que emita y valide desafíos criptográficos; no se activará con una simulación local.</p>');
 }
+const BACKUP_KEYS=['fiado_clients','fiado_txs','fiados_payment_plans','fiados_expenses','fiados_collectors','fiados_rewards','fiados_reward_ledger','fiados_receipts','fiados_whatsapp_logs','fiados_suite_settings','fiados_devices'];
+function backupSnapshot(){
+ const data={};BACKUP_KEYS.forEach(k=>{try{data[k]=JSON.parse(localStorage.getItem(k)||'null')}catch{throw new Error('No se pudo leer '+k+'. No se generó el respaldo.')}});
+ return {format:'fiados-2.0-backup',version:1,createdAt:new Date().toISOString(),data};
+}
+function exportBackup(){
+ try{const payload=backupSnapshot(),blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='fiados-2-respaldo-'+date()+'.json';document.body.append(a);a.click();a.remove();URL.revokeObjectURL(url);save(K.devices,{...read(K.devices,{}),backupAt:new Date().toLocaleString('es-DO')});renderDevices();alert('Respaldo descargado. Guárdalo en un lugar seguro.');}
+ catch(e){alert('No se pudo crear el respaldo: '+e.message)}
+}
+function mergeById(current,incoming){
+ if(!Array.isArray(incoming))return current;
+ const out=Array.isArray(current)?current.slice():[],seen=new Set(out.map(x=>String(x?.id)));
+ incoming.forEach(x=>{if(x&&x.id!=null&&!seen.has(String(x.id))){out.push(x);seen.add(String(x.id));}});
+ return out;
+}
+async function importBackup(file){
+ if(!file)return;
+ try{
+  const parsed=JSON.parse(await file.text());
+  if(parsed.format!=='fiados-2.0-backup'||parsed.version!==1||!parsed.data)throw new Error('El archivo no es un respaldo compatible de Fiados 2.0.');
+  const data=parsed.data,localClients=clients(),localTxs=txs();
+  const incomingClients=Array.isArray(data.fiado_clients)?data.fiado_clients:[];
+  const incomingTxs=Array.isArray(data.fiado_txs)?data.fiado_txs:[];
+  const validIds=new Set([...localClients,...incomingClients].map(x=>String(x.id)));
+  if(incomingClients.some(x=>!x||x.id==null||!String(x.name||'').trim())||incomingTxs.some(x=>!x||x.id==null||!validIds.has(String(x.clientId))||!['DEBT','PAYMENT'].includes(x.type)||!Number.isFinite(Number(x.amount))||Number(x.amount)<=0||!Number.isFinite(Number(x.date))))throw new Error('El respaldo contiene clientes o movimientos inválidos. No se importó nada.');
+  const nextClients=mergeById(localClients,incomingClients),nextTxs=mergeById(localTxs,incomingTxs);
+  DataStore.saveClients(nextClients);DataStore.saveTransactions(nextTxs);
+  ['fiados_payment_plans','fiados_expenses','fiados_collectors','fiados_reward_ledger','fiados_receipts','fiados_whatsapp_logs'].forEach(k=>{if(Array.isArray(data[k]))localStorage.setItem(k,JSON.stringify(mergeById(read(k),data[k])))});
+  ['fiados_rewards','fiados_suite_settings'].forEach(k=>{if(localStorage.getItem(k)===null&&data[k]!=null)localStorage.setItem(k,JSON.stringify(data[k]))});
+  save(K.devices,{...read(K.devices,{}),lastImportAt:new Date().toLocaleString('es-DO')});
+  renderAll();window.App?.render?.();alert('Respaldo importado de forma aditiva. Se conservaron los registros que ya estaban en este celular; no se reemplazó ningún dato existente.');
+ }catch(e){alert('No se pudo importar el respaldo: '+e.message)}
+}
 function renderDevices(){
  const root=document.getElementById('suite-dispositivos');if(!root)return;
  const status=window.FiadosCloud?.getStatus?.()||{signedIn:false,mode:'local'};
- root.innerHTML=panel('Este dispositivo','<p><b>Navegador:</b> '+esc(navigator.userAgent.slice(0,110))+'</p><p><b>Conexión:</b> '+(navigator.onLine?'En línea':'Sin conexión')+'</p><p><b>Supabase:</b> '+(status.signedIn?'Cuenta conectada':'No conectado')+' · '+esc(status.mode)+'</p><p><b>Último respaldo:</b> '+esc(read(K.devices,{}).backupAt||'No registrado')+'</p>'+btn('device-backup','Registrar respaldo descargado','btn btn-secondary')+'<p class="suite-muted">La sincronización real de gastos, cobradores, puntos, planes y recibos requiere tablas nuevas con RLS y pruebas de aislamiento. No se compartirán datos entre cuentas desde el navegador.</p>');
+ const device=read(K.devices,{});
+ root.innerHTML=panel('Este celular','<p><b>Modo de uso:</b> almacenamiento local en este dispositivo</p><p><b>Navegador:</b> '+esc(navigator.userAgent.slice(0,110))+'</p><p><b>Conexión:</b> '+(navigator.onLine?'En línea':'Sin conexión')+'</p><p><b>Supabase:</b> '+(status.signedIn?'Cuenta conectada':'No conectado')+' · '+esc(status.mode)+'</p><p><b>Último respaldo:</b> '+esc(device.backupAt||'No registrado')+'</p><p><b>Última importación:</b> '+esc(device.lastImportAt||'Ninguna')+'</p>'+btn('device-backup','Descargar respaldo completo','btn btn-primary')+'<label class="suite-field">Importar respaldo JSON (se agregan registros sin reemplazar los actuales)<input id="fiados-backup-file" type="file" accept="application/json,.json"></label><p class="suite-muted">Como usas Fiados en un solo celular, no necesitas sincronización entre dispositivos. Mantén una copia JSON fuera del teléfono. El modo sin internet conserva los cambios localmente; la nube solo se usa si conectas una cuenta.</p>');
+ const input=root.querySelector('#fiados-backup-file');if(input)input.addEventListener('change',()=>importBackup(input.files?.[0]));
 }
 function renderModuleLauncher(){
  const dashboard=document.getElementById('view-dashboard');if(!dashboard||document.getElementById('fiados-module-launcher'))return;
@@ -139,7 +174,7 @@ function bind(){
  else if(a.startsWith('delete-expense:')){if(confirm('¿Eliminar este gasto?')){save(K.expenses,read(K.expenses).filter(x=>x.id!==a.split(':')[1]));renderAll()}}
  else if(a.startsWith('delete-collector:')){save(K.collectors,read(K.collectors).filter(x=>x.id!==a.split(':')[1]));renderAll()}
  else if(a==='lock-now')lockScreen();else if(a==='scan')scanBarcode();else if(a==='verify-receipt')scanBarcode('receipt');
- else if(a==='device-backup'){save(K.devices,{...read(K.devices,{}),backupAt:new Date().toLocaleString('es-DO')});renderDevices()}
+ else if(a==='device-backup')exportBackup()
  });
  document.addEventListener('submit',async e=>{const f=e.target;if(!f.dataset.form)return;e.preventDefault();const d=Object.fromEntries(new FormData(f));
  if(f.dataset.form==='expense'){const amount=Number(d.amount);if(!(amount>0))return;save(K.expenses,[...read(K.expenses),{id:crypto.randomUUID(),description:d.description,amount,category:d.category,date:d.date}])}
