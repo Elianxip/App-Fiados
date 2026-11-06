@@ -247,9 +247,31 @@
       if (state.user) setTimeout(async () => { try { await inspectAndOfferMigration(); if (state.mode === 'ready') subscribeRealtime(); } catch(e) { setStatus(e.message, true); } }, 0);
       else { if (state.channel) state.client.removeChannel(state.channel); state.channel = null; setStatus('Sesión cerrada. Tus datos locales permanecen disponibles.'); }
     });
+    const allowedModuleTables = new Set(['payment_plans','expenses','collectors','reward_settings','reward_ledger','receipts','device_registry']);
     window.FiadosCloud = {
       syncAfterLocalSave: syncCurrentLocalChange,
-      getStatus: () => ({ signedIn: !!state.user, mode: state.mode })
+      getStatus: () => ({ signedIn: !!state.user, mode: state.mode }),
+      getClient: () => state.client,
+      getUser: () => state.user,
+      syncModuleTable: async (table, rows) => {
+        if (!state.user || !allowedModuleTables.has(table)) throw new Error('Cuenta no conectada o tabla no permitida.');
+        if (!Array.isArray(rows)) throw new Error('Datos de sincronización inválidos.');
+        if (rows.length) {
+          const { error } = await state.client.from(table).upsert(rows.map(row => ({...row, owner_id: state.user.id})), { onConflict: 'owner_id,id' });
+          if (error) throw error;
+        }
+        const { data, error } = await state.client.from(table).select('*').eq('owner_id', state.user.id);
+        if (error) throw error;
+        return data || [];
+      },
+      syncRewardSettings: async (rate) => {
+        if (!state.user) throw new Error('Cuenta no conectada.');
+        const { error } = await state.client.from('reward_settings').upsert({owner_id:state.user.id,points_per_hundred:Number(rate)||0},{onConflict:'owner_id'});
+        if (error) throw error;
+        const { data, error: readError } = await state.client.from('reward_settings').select('*').eq('owner_id',state.user.id).maybeSingle();
+        if (readError) throw readError;
+        return data;
+      }
     };
   };
   document.addEventListener('DOMContentLoaded', init);
