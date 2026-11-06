@@ -91,7 +91,7 @@ function bind(){
  document.addEventListener('submit',async e=>{const f=e.target;if(!f.dataset.form)return;e.preventDefault();const d=Object.fromEntries(new FormData(f));
  if(f.dataset.form==='expense'){const amount=Number(d.amount);if(!(amount>0))return;save(K.expenses,[...read(K.expenses),{id:crypto.randomUUID(),description:d.description,amount,category:d.category,date:d.date}])}
  if(f.dataset.form==='collector')save(K.collectors,[...read(K.collectors),{id:crypto.randomUUID(),name:d.name}]);
- if(f.dataset.form==='rewards')save(K.rewards,{rate:Math.max(0,Number(d.rate))});
+ if(f.dataset.form==='rewards')save(K.rewards,{rate:Math.max(0,Number(d.rate)),updatedAt:Date.now()});
  if(f.dataset.form==='pin'){if(!/^\d{4,8}$/.test(d.pin))return;const salt=crypto.randomUUID();save(K.settings,{salt,pinHash:await hashPin(d.pin,salt)});alert('PIN guardado. Se bloqueará al cerrar y volver a abrir la app.')}
  renderAll();
  });
