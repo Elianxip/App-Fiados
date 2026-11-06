@@ -1,5 +1,5 @@
-const CACHE = 'fiados-2-shell-v3';
-const ASSETS = ['./', './index.html', './styles.css', './app.js', './fiados-v2-foundation.js', './fiados-pro.js', './fiados-cloud.js', './supabase-config.js', './manifest.webmanifest', './icon.svg'];
+const CACHE = 'fiados-2-shell-v4';
+const ASSETS = ['./', './index.html', './styles.css', './app.js', './fiados-v2-foundation.js', './fiados-pro.js', './fiados-plans.js', './fiados-cloud.js', './supabase-config.js', './manifest.webmanifest', './icon.svg'];
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(ASSETS)).then(() => self.skipWaiting()));
 });
