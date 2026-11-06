@@ -87,7 +87,7 @@ async function hashPin(pin,salt){const enc=new TextEncoder();const key=await cry
 function b64url(bytes){
  const arr=bytes instanceof Uint8Array?bytes:new Uint8Array(bytes);
  let binary='';arr.forEach(x=>binary+=String.fromCharCode(x));
- return btoa(binary).replace(/\\+/g,'-').replace(/\\//g,'_').replace(/=+$/,'');
+ return btoa(binary).split('+').join('-').split('/').join('_').replace(/=+$/,'');
 }
 function fromB64url(value){
  const raw=String(value).replace(/-/g,'+').replace(/_/g,'/');
