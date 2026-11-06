@@ -12,7 +12,7 @@ const money=n=>new Intl.NumberFormat('es-DO',{style:'currency',currency:'DOP'}).
 const clients=()=>DataStore.getClients();
 const txs=()=>DataStore.getTransactions();
 const balance=()=>clients().reduce((s,c)=>s+Math.max(0,DataStore.getClientBalance(c.id)),0);
-const date=()=>new Date().toISOString().slice(0,10);
+const date=()=>new Intl.DateTimeFormat('en-CA',{timeZone:'America/Santo_Domingo',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
 const todayTotal=()=>txs().filter(t=>t.type==='PAYMENT'&&new Date(t.date).toISOString().slice(0,10)===date()).reduce((s,t)=>s+Number(t.amount),0);
 const settings=()=>read(K.settings,{});
 const setStatus=(root,msg)=>{const el=root.querySelector('[data-status]');if(el)el.textContent=msg};
@@ -32,11 +32,27 @@ function renderExpenses(){
 }
 function renderFinance(){
  const root=document.getElementById('suite-finanzas');if(!root)return;
- const expenses=read(K.expenses).reduce((s,x)=>s+Number(x.amount),0),income=txs().filter(t=>t.type==='PAYMENT').reduce((s,t)=>s+Number(t.amount),0),debt=balance();
- const upcoming=read('fiados_payment_plans').flatMap(p=>(p.installments||[]).map(i=>({date:i.dueDate,amount:Number(i.amount)}))).filter(x=>x.date>=date()).sort((a,b)=>a.date.localeCompare(b.date));
- const next30=upcoming.filter(x=>(new Date(x.date+'T12:00:00')-new Date())/86400000<=30).reduce((s,x)=>s+x.amount,0);
- root.innerHTML='<div class="stats-grid">'+card('Abonos históricos',money(income))+card('Gastos',money(expenses))+card('Resultado neto',money(income-expenses))+card('Cartera pendiente',money(debt))+card('Cuotas próximas (30 días)',money(next30))+'</div>'+panel('Proyección','<p>La proyección de cuotas usa los planes guardados. Los clientes sin fecha de vencimiento no se inventan ni se incluyen.</p><p><b>Saldo actual de cartera:</b> '+money(debt)+'</p><p><b>Cuotas planificadas próximos 30 días:</b> '+money(next30)+'</p><p class="suite-muted">Es una estimación, no una promesa de cobro. Los pagos reales pueden variar.</p>');
+ const expenseRows=read(K.expenses),expenses=expenseRows.reduce((s,x)=>s+Number(x.amount||0),0);
+ const income=txs().filter(t=>t.type==='PAYMENT').reduce((s,t)=>s+Number(t.amount||0),0),debt=balance(),todayKey=date();
+ const plans=read('fiados_payment_plans'),scheduled=[];
+ plans.forEach(p=>{
+  const payments=txs().filter(t=>t.type==='PAYMENT'&&t.clientId===p.clientId&&Number(t.date)>=Number(p.createdAt)).reduce((s,t)=>s+Number(t.amount||0),0);
+  let remainingPaid=Math.min(Number(p.total)||0,payments);
+  (p.installments||[]).forEach(i=>{
+   const applied=Math.min(Number(i.amount)||0,remainingPaid);remainingPaid-=applied;
+   const remaining=Math.max(0,(Number(i.amount)||0)-applied);
+   if(remaining>0&&i.dueDate)scheduled.push({date:i.dueDate,amount:remaining});
+  });
+ });
+ const dayDiff=k=>(new Date(k+'T12:00:00-04:00')-new Date(todayKey+'T12:00:00-04:00'))/86400000;
+ const next30=scheduled.filter(x=>dayDiff(x.date)>=0&&dayDiff(x.date)<=30).reduce((s,x)=>s+x.amount,0);
+ const overdue=scheduled.filter(x=>dayDiff(x.date)<0).reduce((s,x)=>s+x.amount,0);
+ const next90=scheduled.filter(x=>dayDiff(x.date)>=0&&dayDiff(x.date)<=90).reduce((s,x)=>s+x.amount,0);
+ const currentMonth=txs().filter(t=>t.type==='PAYMENT'&&dateKeySafe(t.date).slice(0,7)===todayKey.slice(0,7)).reduce((s,t)=>s+Number(t.amount||0),0);
+ const monthExpenses=expenseRows.filter(x=>String(x.date||'').slice(0,7)===todayKey.slice(0,7)).reduce((s,x)=>s+Number(x.amount||0),0);
+ root.innerHTML='<div class="stats-grid">'+card('Abonos históricos',money(income))+card('Gastos históricos',money(expenses))+card('Resultado neto histórico',money(income-expenses))+card('Cartera pendiente',money(debt))+card('Cuotas próximos 30 días',money(next30))+card('Cuotas vencidas de planes',money(overdue))+card('Proyección próximos 90 días',money(next90))+card('Neto del mes actual',money(currentMonth-monthExpenses))+'</div>'+panel('Proyección de cobros','<p><b>Próximos 30 días:</b> '+money(next30)+'</p><p><b>Próximos 90 días:</b> '+money(next90)+'</p><p><b>Cuotas vencidas pendientes:</b> '+money(overdue)+'</p><p><b>Saldo actual de cartera:</b> '+money(debt)+'</p><p class="suite-muted">Se descuentan los abonos posteriores a la creación de cada plan y se excluyen deudas antiguas sin fecha. Es una proyección, no una promesa de cobro.</p>');
 }
+function dateKeySafe(value){try{return new Intl.DateTimeFormat('en-CA',{timeZone:'America/Santo_Domingo',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date(Number(value)||value))}catch{return ''}}
 function renderReceipts(){
  const root=document.getElementById('suite-recibos');if(!root)return;
  const payments=txs().filter(t=>t.type==='PAYMENT').slice().sort((a,b)=>b.date-a.date);
