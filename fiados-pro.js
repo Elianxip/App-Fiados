@@ -72,6 +72,7 @@
     ensureWhatsAppModal();
     $('fiados-wa-message').value=message;
     $('fiados-wa-open').dataset.phone=phone;
+    $('fiados-wa-open').dataset.clientId=String(client.id);
     updateWhatsAppLink();
     waModal.hidden=false;
     $('fiados-wa-message').focus();
@@ -182,6 +183,8 @@
     const oldDetail=App.renderClientDetail.bind(App);
     App.renderClientDetail=()=>{oldDetail();const client=clients().find(c=>c.id===App.currentClientId);if(!client)return;const actions=document.querySelector('#view-client-detail .actions-row');if(actions&&!$('fiados-client-whatsapp')){const b=document.createElement('button');b.id='fiados-client-whatsapp';b.type='button';b.className='btn btn-primary';b.textContent='Contactar por WhatsApp';b.addEventListener('click',()=>openWhatsApp(client.id));actions.appendChild(b);}};
     document.addEventListener('click',e=>{
+      const waOpen=e.target.closest('#fiados-wa-open');
+      if(waOpen){const logs=JSON.parse(localStorage.getItem('fiados_whatsapp_logs')||'[]');logs.push({id:crypto.randomUUID(),clientId:waOpen.dataset.clientId||'',phone:waOpen.dataset.phone||'',message:$('fiados-wa-message')?.value||'',openedAt:Date.now(),status:'draft_opened'});localStorage.setItem('fiados_whatsapp_logs',JSON.stringify(logs));}
       const wa=e.target.closest('[data-wa-client]');if(wa){openWhatsApp(wa.dataset.waClient);return;}
       const filter=e.target.closest('[data-agenda-filter]');if(filter){agendaFilter=filter.dataset.agendaFilter;renderAgenda();return;}
       const action=e.target.closest('[data-pro-action]')?.dataset.proAction;if(!action)return;
