@@ -82,6 +82,22 @@ create table if not exists public.receipts (
   unique (owner_id, verification_code)
 );
 
+
+create table if not exists public.whatsapp_drafts (
+  id text not null,
+  owner_id uuid not null references auth.users(id) on delete cascade,
+  client_id text,
+  phone text not null default '',
+  message text not null,
+  opened_at timestamptz not null default now(),
+  payload jsonb not null default '{}'::jsonb,
+  primary key (owner_id, id),
+  constraint whatsapp_drafts_client_owner_fk foreign key (owner_id, client_id)
+    references public.clients(owner_id, id) on delete restrict,
+  constraint whatsapp_drafts_payload_object check (jsonb_typeof(payload) = 'object')
+);
+create index if not exists whatsapp_drafts_owner_opened_idx on public.whatsapp_drafts(owner_id, opened_at desc);
+
 create table if not exists public.device_registry (
   id text not null,
   owner_id uuid not null references auth.users(id) on delete cascade,
@@ -98,7 +114,7 @@ create table if not exists public.device_registry (
 do $$
 declare t text;
 begin
-  foreach t in array array['payment_plans','expenses','collectors','reward_settings','reward_ledger','receipts','device_registry'] loop
+  foreach t in array array['payment_plans','expenses','collectors','reward_settings','reward_ledger','receipts','device_registry','whatsapp_drafts'] loop
     execute format('alter table public.%I enable row level security', t);
     execute format('drop policy if exists %I on public.%I', t || '_owner_all', t);
     execute format('create policy %I on public.%I for all to authenticated using (owner_id = (select auth.uid())) with check (owner_id = (select auth.uid()))', t || '_owner_all', t);
@@ -128,3 +144,4 @@ comment on table public.reward_settings is 'Configuración de puntos por propiet
 comment on table public.reward_ledger is 'Libro de puntos; no modifica transacciones históricas.';
 comment on table public.receipts is 'Recibos vinculados a abonos existentes.';
 comment on table public.device_registry is 'Dispositivos registrados para sincronización.';
+comment on table public.whatsapp_drafts is 'Historial de borradores abiertos para WhatsApp; no confirma entrega del mensaje.';
