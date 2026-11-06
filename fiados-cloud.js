@@ -22,16 +22,16 @@
   };
   const clientRows = (userId, clients) => clients.map(c => ({
     id: String(c.id), owner_id: userId, name: String(c.name || '').trim(),
-    phone: String(c.phone || ''), created_at: new Date(Number(c.createdAt) || Date.now()).toISOString()
+    phone: String(c.phone || ''), notes: String(c.notes || ''), created_at: new Date(Number(c.createdAt) || Date.now()).toISOString()
   }));
   const txRows = (userId, txs) => txs.map(t => ({
     id: String(t.id), owner_id: userId, client_id: String(t.clientId),
     type: t.type, amount: Number(t.amount), description: String(t.desc || ''),
-    occurred_at: new Date(Number(t.date)).toISOString(), due_at: null
+    occurred_at: new Date(Number(t.date)).toISOString(), due_at: t.dueAt ? new Date(t.dueAt).toISOString() : null
   }));
   const toLocal = (clients, txs) => ({
-    clients: clients.map(c => ({ id: c.id, name: c.name, phone: c.phone || '', createdAt: new Date(c.created_at).getTime() })),
-    transactions: txs.map(t => ({ id: t.id, clientId: t.client_id, type: t.type, amount: Number(t.amount), desc: t.description || '', date: new Date(t.occurred_at).getTime() }))
+    clients: clients.map(c => ({ id: c.id, name: c.name, phone: c.phone || '', notes: c.notes || '', createdAt: new Date(c.created_at).getTime() })),
+    transactions: txs.map(t => ({ id: t.id, clientId: t.client_id, type: t.type, amount: Number(t.amount), desc: t.description || '', date: new Date(t.occurred_at).getTime(), ...(t.due_at ? {dueAt:t.due_at} : {}) }))
   });
   const validate = (data) => {
     const ids = new Set(data.clients.map(c => String(c.id)));
@@ -201,21 +201,30 @@
       setStatus('Guardado localmente, pero falló la sincronización: ' + (e.message || 'error') + '. Revisa la conexión antes de seguir trabajando en otro dispositivo.', true);
     }
   };
+  const mergeBaseWithoutDeleting = (remote) => {
+    const local = localData();
+    const clients = new Map(local.clients.map(x => [String(x.id), x]));
+    remote.clients.forEach(x => { if (!clients.has(String(x.id))) clients.set(String(x.id), x); });
+    const txs = new Map(local.transactions.map(x => [String(x.id), x]));
+    remote.transactions.forEach(x => { if (!txs.has(String(x.id))) txs.set(String(x.id), x); });
+    const merged = {clients:[...clients.values()], transactions:[...txs.values()]};
+    validate(merged);
+    localStorage.setItem(CLIENTS_KEY, JSON.stringify(merged.clients));
+    localStorage.setItem(TX_KEY, JSON.stringify(merged.transactions));
+    if (window.App && typeof window.App.render === 'function') window.App.render();
+  };
   const subscribeRealtime = () => {
     if (state.channel) state.client.removeChannel(state.channel);
     if (!state.user) return;
     const uid = state.user.id;
+    const refresh = async (label) => {
+      if (state.mode !== 'ready') return;
+      try { const fresh = await fetchCloud(); mergeBaseWithoutDeleting(fresh); setStatus(label+' sincronizados desde la nube sin borrar datos locales.'); }
+      catch (e) { setStatus('No se pudo actualizar la vista: ' + e.message, true); }
+    };
     state.channel = state.client.channel('fiados-owner-' + uid)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'clients', filter: 'owner_id=eq.' + uid }, async () => {
-        if (state.mode !== 'ready') return;
-        try { const fresh = await fetchCloud(); replaceLocal(fresh); setStatus('Clientes actualizados desde tus otros dispositivos.'); }
-        catch (e) { setStatus('No se pudo actualizar la vista: ' + e.message, true); }
-      })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'transactions', filter: 'owner_id=eq.' + uid }, async () => {
-        if (state.mode !== 'ready') return;
-        try { const fresh = await fetchCloud(); replaceLocal(fresh); setStatus('Movimientos actualizados desde tus otros dispositivos.'); }
-        catch (e) { setStatus('No se pudo actualizar la vista: ' + e.message, true); }
-      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'clients', filter: 'owner_id=eq.' + uid }, () => refresh('Clientes'))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'transactions', filter: 'owner_id=eq.' + uid }, () => refresh('Movimientos'))
       .subscribe();
   };
   const init = async () => {
