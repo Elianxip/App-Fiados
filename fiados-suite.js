@@ -40,17 +40,32 @@ function renderFinance(){
 function renderReceipts(){
  const root=document.getElementById('suite-recibos');if(!root)return;
  const payments=txs().filter(t=>t.type==='PAYMENT').slice().sort((a,b)=>b.date-a.date);
- root.innerHTML=panel('Recibos de abonos','<p>Selecciona un abono para generar un comprobante imprimible con código único verificable dentro de esta copia local.</p><div class="suite-list">'+(payments.length?payments.map(t=>{const c=clients().find(x=>x.id===t.clientId);return '<article><b>'+esc(c?.name||'Cliente')+' · '+money(t.amount)+'</b><span>'+esc(new Date(t.date).toLocaleString('es-DO'))+' · '+esc(t.desc||'Abono')+'</span>'+btn('receipt:'+t.id,'Generar recibo','btn btn-secondary')+'</article>'}).join(''):'<p>No hay abonos registrados.</p>')+'</div><p class="suite-muted">El QR verificable en línea requiere un endpoint seguro; no se generará un QR falso ni se enviarán datos del cliente a terceros.</p>');
+ root.innerHTML=panel('Recibos de abonos','<p>Genera comprobantes con QR. El QR contiene datos del abono y puede validarse sin internet en este mismo dispositivo, comparándolo con el movimiento guardado.</p>'+btn('verify-receipt','Verificar QR con cámara','btn btn-secondary')+'<div class="suite-list">'+(payments.length?payments.map(t=>{const cl=clients().find(x=>x.id===t.clientId);return '<article><b>'+esc(cl?.name||'Cliente')+' · '+money(t.amount)+'</b><span>'+esc(new Date(t.date).toLocaleString('es-DO'))+' · '+esc(t.desc||'Abono')+'</span>'+btn('receipt:'+t.id,'Generar recibo QR','btn btn-secondary')+'</article>'}).join(''):'<p>No hay abonos registrados.</p>')+'</div><p class="suite-muted">La validación local no equivale a una firma fiscal ni a una verificación pública por internet.</p>');
 }
 function renderTeam(){
  const root=document.getElementById('suite-equipo');if(!root)return;
  const team=read(K.collectors),all=txs().filter(t=>t.type==='PAYMENT'),rows=team.map(p=>({p,total:all.filter(t=>t.collectorId===p.id).reduce((s,t)=>s+Number(t.amount),0),count:all.filter(t=>t.collectorId===p.id).length}));
  const active=settings().activeCollectorId||'';const selector='<label class="suite-field">Cobrador para próximos abonos<select id="fiados-active-collector"><option value="">Sin asignar</option>'+team.map(x=>'<option value="'+esc(x.id)+'" '+(x.id===active?'selected':'')+'>'+esc(x.name)+'</option>').join('')+'</select></label>';root.innerHTML=panel('Registrar cobrador','<form data-form="collector" class="suite-form">'+field('Nombre del cobrador','name')+'<button class="btn btn-primary">Agregar cobrador</button></form>'+selector)+panel('Rendimiento','<p class="suite-muted">Los abonos nuevos se atribuyen al cobrador seleccionado. Los movimientos antiguos quedan sin atribución.</p><div class="suite-list">'+(rows.length?rows.map(x=>'<article><b>'+esc(x.p.name)+'</b><span>'+x.count+' abonos · '+money(x.total)+'</span>'+btn('delete-collector:'+x.p.id,'Quitar','btn btn-secondary')+'</article>').join(''):'<p>No hay cobradores registrados.</p>')+'</div>');const sel=root.querySelector('#fiados-active-collector');if(sel)sel.onchange=()=>save(K.settings,{...settings(),activeCollectorId:sel.value});
 }
+function rewardRows(){
+ const cfg=read(K.rewards,{rate:1}),ledger=read('fiados_reward_ledger');
+ const rate=Math.max(0,Number(cfg.rate)||0);
+ return clients().map(client=>{
+  const paid=txs().filter(t=>t.type==='PAYMENT'&&t.clientId===client.id).reduce((s,t)=>s+Number(t.amount||0),0);
+  const earned=Math.floor(paid/100*rate);
+  const redeemed=ledger.filter(x=>x.clientId===client.id).reduce((s,x)=>s+Number(x.points||0),0);
+  return {client,paid,earned,redeemed,available:Math.max(0,earned-redeemed)};
+ });
+}
 function renderRewards(){
  const root=document.getElementById('suite-recompensas');if(!root)return;
- const cfg=read(K.rewards,{rate:1}),payments=txs().filter(t=>t.type==='PAYMENT'),total=payments.reduce((s,t)=>s+Number(t.amount),0),points=Math.floor(total/100*Number(cfg.rate||1));
- root.innerHTML=panel('Reglas de puntos','<form data-form="rewards" class="suite-form"><label class="suite-field">Puntos por cada RD$100 abonados<input name="rate" type="number" min="0" step="0.1" value="'+Number(cfg.rate||1)+'" required></label><button class="btn btn-primary">Guardar regla</button></form>')+card('Puntos acumulados estimados',points,'Calculados sobre abonos históricos')+panel('Recompensas','<p>Los puntos son un programa promocional y no reducen automáticamente las deudas. La redención y el historial por cliente se añadirán al habilitar reglas de canje.</p>');
+ const cfg=read(K.rewards,{rate:1}),rows=rewardRows(),total=rows.reduce((s,x)=>s+x.earned,0),used=rows.reduce((s,x)=>s+x.redeemed,0);
+ const options=rows.map(x=>'<option value="'+esc(x.client.id)+'">'+esc(x.client.name)+' · '+x.available+' puntos</option>').join('');
+ root.innerHTML=panel('Reglas de puntos','<form data-form="rewards" class="suite-form"><label class="suite-field">Puntos por cada RD$100 abonados<input name="rate" type="number" min="0" step="0.1" value="'+Number(cfg.rate||1)+'" required></label><button class="btn btn-primary">Guardar regla</button></form><p class="suite-muted">La regla se aplica al total histórico de abonos; al cambiarla, el cálculo de puntos se actualiza para todos los clientes.</p>')+
+ card('Puntos ganados',total,'Según los abonos registrados')+card('Puntos canjeados',used,'Recompensas entregadas')+
+ panel('Canjear recompensa','<form data-form="reward-redeem" class="suite-form"><label class="suite-field">Cliente<select name="clientId" required>'+options+'</select></label>'+field('Puntos a canjear','points','number','min="1" step="1"')+field('Recompensa entregada','reward')+'<button class="btn btn-primary" '+(rows.length?'':'disabled')+'>Registrar canje</button></form>')+
+ panel('Saldo de puntos por cliente','<div class="suite-list">'+(rows.length?rows.map(x=>'<article><b>'+esc(x.client.name)+'</b><span>'+money(x.paid)+' abonados · '+x.earned+' ganados · '+x.redeemed+' canjeados · <strong>'+x.available+' disponibles</strong></span></article>').join(''):'<p>No hay clientes todavía.</p>')+'</div>')+
+ panel('Historial de canjes','<div class="suite-list">'+(read('fiados_reward_ledger').slice().reverse().map(x=>'<article><b>'+esc(x.reward)+'</b><span>'+esc(clients().find(c=>c.id===x.clientId)?.name||'Cliente')+' · '+Number(x.points)+' puntos · '+esc(x.date)+'</span></article>').join('')||'<p>No hay canjes registrados.</p>')+'</div>');
 }
 async function hashPin(pin,salt){const enc=new TextEncoder();const key=await crypto.subtle.importKey('raw',enc.encode(pin),'PBKDF2',false,['deriveBits']);const bits=await crypto.subtle.deriveBits({name:'PBKDF2',salt:enc.encode(salt),iterations:120000,hash:'SHA-256'},key,256);return [...new Uint8Array(bits)].map(x=>x.toString(16).padStart(2,'0')).join('')}
 function lockScreen(){
@@ -87,29 +102,50 @@ function renderModuleLauncher(){
 }
 function renderAll(){renderExpenses();renderFinance();renderReceipts();renderTeam();renderRewards();renderSecurity();renderDevices()}
 function receipt(id){
- const t=txs().find(x=>x.id===id),c=t&&clients().find(x=>x.id===t.clientId);if(!t||!c)return;
+ const t=txs().find(x=>x.id===id),cl=t&&clients().find(x=>x.id===t.clientId);if(!t||!cl)return;
  const code='F2-'+String(t.id).replace(/[^a-z0-9]/gi,'').slice(-12).toUpperCase();
+ const payload='F2R1:'+btoa(unescape(encodeURIComponent(JSON.stringify({v:1,code,transactionId:String(t.id),clientId:String(cl.id),amount:Number(t.amount),date:Number(t.date)})))).replace(/=/g,'');
  const w=window.open('','_blank');if(!w){alert('Permite ventanas emergentes para imprimir.');return}
- w.document.write('<!doctype html><html lang="es"><meta charset="utf-8"><title>Recibo '+code+'</title><style>body{font:15px Arial;margin:35px;color:#111}h1{margin-bottom:5px}.box{border:1px solid #ddd;padding:20px;max-width:600px}.amount{font-size:28px;font-weight:bold}small{color:#555}</style><div class="box"><h1>FIADOS 2.0</h1><small>Comprobante de abono · '+code+'</small><hr><p>Recibimos de: <b>'+esc(c.name)+'</b></p><p>Fecha: '+esc(new Date(t.date).toLocaleString('es-DO'))+'</p><p>Concepto: '+esc(t.desc||'Abono')+'</p><p class="amount">'+money(t.amount)+'</p><p>Saldo restante: '+money(DataStore.getClientBalance(c.id))+'</p><hr><small>Código local del movimiento: '+esc(code)+'. Este documento no sustituye una factura fiscal.</small><p><button onclick="print()">Imprimir / Guardar PDF</button></p></div></html>');w.document.close();
- save(K.receipts,[...read(K.receipts),{id:code,transactionId:id,createdAt:Date.now()}]);
+ w.document.write('<!doctype html><html lang="es"><meta charset="utf-8"><title>Recibo '+code+'</title><style>body{font:15px Arial;margin:35px;color:#111}.box{border:1px solid #ddd;padding:20px;max-width:600px}.amount{font-size:28px;font-weight:bold}small{color:#555}#qr{margin:18px auto;width:180px;height:180px}</style><div class="box"><h1>FIADOS 2.0</h1><small>Comprobante de abono · '+code+'</small><hr><p>Recibimos de: <b>'+esc(cl.name)+'</b></p><p>Fecha: '+esc(new Date(t.date).toLocaleString('es-DO'))+'</p><p>Concepto: '+esc(t.desc||'Abono')+'</p><p class="amount">'+money(t.amount)+'</p><p>Saldo restante: '+money(DataStore.getClientBalance(cl.id))+'</p><div id="qr"></div><small>QR de datos del movimiento. Validación local en Fiados 2.0; no es firma fiscal ni validación en línea.</small><hr><button onclick="print()">Imprimir / Guardar PDF</button></div></html>');
+ w.document.close();
+ if(window.QRCode){w.QRCode=window.QRCode;new w.QRCode(w.document.getElementById('qr'),{text:payload,width:180,height:180,correctLevel:window.QRCode.CorrectLevel.M});}
+ if(!read(K.receipts).some(x=>x.transactionId===id))save(K.receipts,[...read(K.receipts),{id:code,transactionId:id,createdAt:Date.now(),payload}]);
 }
 let scannerStream=null;
-async function scanBarcode(){
- if(!('BarcodeDetector'in window)){alert('Este navegador no incluye BarcodeDetector. Prueba Chrome/Edge actualizado en Android o usa entrada manual.');return}
- try{const detector=new BarcodeDetector({formats:['ean_13','ean_8','upc_a','upc_e','code_128','qr_code']});const stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}});scannerStream=stream;const v=document.createElement('video');v.autoplay=true;v.playsInline=true;v.srcObject=stream;const o=document.createElement('div');o.className='fiados-pin-overlay';o.innerHTML='<div class="glass scanner-box"><h2>Escanear código</h2><video autoplay playsinline></video><p data-status>Apunta la cámara al código.</p><button type="button" class="btn btn-secondary" data-stop>Cerrar</button></div>';document.body.append(o);const video=o.querySelector('video');video.srcObject=stream;const stop=()=>{stream.getTracks().forEach(t=>t.stop());o.remove();scannerStream=null};o.querySelector('[data-stop]').onclick=stop;await video.play();const tick=async()=>{if(!o.isConnected)return;try{const found=await detector.detect(video);if(found.length){const code=found[0].rawValue;stop();const input=document.getElementById('input-debt-desc');if(input)input.value=(input.value?input.value+' · ':'')+'Código '+code;else alert('Código leído: '+code+' (abre Anotar Fiado para usarlo).');return}}catch{}requestAnimationFrame(tick)};tick()}catch(e){alert('No se pudo abrir la cámara: '+e.message)}
+async function scanBarcode(mode='product'){
+ if(!('BarcodeDetector'in window)){alert('Este navegador no incluye BarcodeDetector. Usa Chrome actualizado en Android con cámara permitida; también puedes introducir el código manualmente.');return}
+ if(!navigator.mediaDevices?.getUserMedia){alert('El navegador no permite acceder a la cámara.');return}
+ try{
+  const detector=new BarcodeDetector({formats:['ean_13','ean_8','upc_a','upc_e','code_128','qr_code']});
+  const stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}});scannerStream=stream;
+  const o=document.createElement('div');o.className='fiados-pin-overlay';o.innerHTML='<div class="glass scanner-box"><h2>'+(mode==='receipt'?'Verificar recibo':'Escanear código')+'</h2><video autoplay playsinline></video><p data-status>Apunta la cámara al código.</p><button type="button" class="btn btn-secondary" data-stop>Cerrar</button></div>';document.body.append(o);
+  const video=o.querySelector('video');video.srcObject=stream;
+  const stop=()=>{stream.getTracks().forEach(t=>t.stop());o.remove();scannerStream=null};o.querySelector('[data-stop]').onclick=stop;
+  await video.play();
+  const tick=async()=>{if(!o.isConnected)return;try{const found=await detector.detect(video);if(found.length){
+   const raw=found[0].rawValue;stop();
+   if(raw.startsWith('F2R1:')){
+    try{const data=JSON.parse(decodeURIComponent(escape(atob(raw.slice(5).replace(/-/g,'+').replace(/_/g,'/')))));const tx=txs().find(x=>String(x.id)===data.transactionId),cl=tx&&clients().find(x=>String(x.id)===data.clientId);const valid=!!(tx&&cl&&Number(tx.amount)===Number(data.amount)&&Number(tx.date)===Number(data.date)&&tx.type==='PAYMENT');alert(valid?'RECIBO VÁLIDO EN ESTE DISPOSITIVO\n'+cl.name+' · '+money(tx.amount)+'\nCódigo: '+data.code:'No se encontró coincidencia. El recibo no coincide con los datos locales.');}
+    catch{alert('El QR no tiene un formato válido de Fiados 2.0.')}return;
+   }
+   if(mode==='receipt'){alert('El código escaneado no es un QR de recibo Fiados 2.0.');return}
+   const input=document.getElementById('input-debt-desc');if(input)input.value=(input.value?input.value+' · ':'')+'Código '+raw;else alert('Código leído: '+raw);return;
+  }}catch{}requestAnimationFrame(tick)};tick();
+ }catch(e){alert('No se pudo abrir la cámara: '+e.message)}
 }
 function bind(){
  document.addEventListener('click',e=>{const b=e.target.closest('[data-action]');if(!b)return;const a=b.dataset.action;
  if(a.startsWith('receipt:'))receipt(a.split(':')[1]);
  else if(a.startsWith('delete-expense:')){if(confirm('¿Eliminar este gasto?')){save(K.expenses,read(K.expenses).filter(x=>x.id!==a.split(':')[1]));renderAll()}}
  else if(a.startsWith('delete-collector:')){save(K.collectors,read(K.collectors).filter(x=>x.id!==a.split(':')[1]));renderAll()}
- else if(a==='lock-now')lockScreen();else if(a==='scan')scanBarcode();
+ else if(a==='lock-now')lockScreen();else if(a==='scan')scanBarcode();else if(a==='verify-receipt')scanBarcode('receipt');
  else if(a==='device-backup'){save(K.devices,{...read(K.devices,{}),backupAt:new Date().toLocaleString('es-DO')});renderDevices()}
  });
  document.addEventListener('submit',async e=>{const f=e.target;if(!f.dataset.form)return;e.preventDefault();const d=Object.fromEntries(new FormData(f));
  if(f.dataset.form==='expense'){const amount=Number(d.amount);if(!(amount>0))return;save(K.expenses,[...read(K.expenses),{id:crypto.randomUUID(),description:d.description,amount,category:d.category,date:d.date}])}
  if(f.dataset.form==='collector')save(K.collectors,[...read(K.collectors),{id:crypto.randomUUID(),name:d.name}]);
  if(f.dataset.form==='rewards')save(K.rewards,{rate:Math.max(0,Number(d.rate)),updatedAt:Date.now()});
+ if(f.dataset.form==='reward-redeem'){const row=rewardRows().find(x=>x.client.id===d.clientId),points=Math.floor(Number(d.points));if(!row||!Number.isInteger(points)||points<1||points>row.available){alert('El canje supera los puntos disponibles o el monto no es válido.');return;}save('fiados_reward_ledger',[...read('fiados_reward_ledger'),{id:crypto.randomUUID(),clientId:d.clientId,points,reward:String(d.reward||'').trim(),date:date(),createdAt:Date.now()}]);}
  if(f.dataset.form==='pin'){if(!/^\d{4,8}$/.test(d.pin))return;const salt=crypto.randomUUID();save(K.settings,{salt,pinHash:await hashPin(d.pin,salt)});alert('PIN guardado. Se bloqueará al cerrar y volver a abrir la app.')}
  renderAll();
  });
