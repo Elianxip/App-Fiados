@@ -38,7 +38,9 @@ async function sync(){
  if(!Array.isArray(rewards)&&rewards&&Number.isFinite(Number(rewards.rate))){
   const remote=await api.fetchRewardSettings();
   if(!remote){await api.saveRewardSettings(rewards.rate);summary.push('configuración de puntos subida')}
-  else {write('fiados_rewards',{rate:Number(remote.points_per_hundred),updatedAt:new Date(remote.updated_at).getTime()});summary.push('configuración de puntos descargada')}
+  else if(Number(rewards.updatedAt||0)>new Date(remote.updated_at).getTime()){
+   await api.saveRewardSettings(rewards.rate);summary.push('configuración local de puntos actualizada en la nube')
+  } else {write('fiados_rewards',{rate:Number(remote.points_per_hundred),updatedAt:new Date(remote.updated_at).getTime()});summary.push('configuración de puntos descargada')}
  }
  const deviceKey='fiados_device_id';
  let deviceId=localStorage.getItem(deviceKey);
