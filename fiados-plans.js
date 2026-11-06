@@ -8,7 +8,7 @@
     try { const v = JSON.parse(localStorage.getItem(KEY) || '[]'); return Array.isArray(v) ? v : []; }
     catch { return []; }
   };
-  const savePlans = plans => localStorage.setItem(KEY, JSON.stringify(plans));
+  const savePlans = plans => { localStorage.setItem(KEY, JSON.stringify(plans)); if(window.FiadosModulesSync&&window.FiadosCloud?.getStatus?.().signedIn&&window.FiadosCloud.getStatus().mode==='ready') queueMicrotask(()=>window.FiadosModulesSync.sync().catch(()=>{})); };
   const money = n => new Intl.NumberFormat('es-DO', {style:'currency',currency:'DOP'}).format(Number(n)||0);
   const esc = v => String(v ?? '').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const dateKey = value => {
