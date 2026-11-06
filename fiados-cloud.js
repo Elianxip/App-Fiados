@@ -5,7 +5,10 @@
   const CLIENTS_KEY = 'fiado_clients';
   const TX_KEY = 'fiado_txs';
   const config = window.FIADOS_SUPABASE_CONFIG;
-  const state = { client: null, user: null, mode: 'local', busy: false, channel: null, pendingSync: false };
+  const state = { client: null, user: null, mode: 'local', busy: false, channel: null, pendingSync: false, initializing: false };
+  const PENDING_KEY = 'fiados_sync_pending_v1';
+  const markPending = () => localStorage.setItem(PENDING_KEY, '1');
+  const clearPending = () => localStorage.removeItem(PENDING_KEY);
   const $ = (id) => document.getElementById(id);
   const read = (key) => {
     try { const v = JSON.parse(localStorage.getItem(key) || '[]'); return Array.isArray(v) ? v : []; }
@@ -22,16 +25,16 @@
   };
   const clientRows = (userId, clients) => clients.map(c => ({
     id: String(c.id), owner_id: userId, name: String(c.name || '').trim(),
-    phone: String(c.phone || ''), created_at: new Date(Number(c.createdAt) || Date.now()).toISOString()
+    phone: String(c.phone || ''), notes: String(c.notes || ''), created_at: new Date(Number(c.createdAt) || Date.now()).toISOString()
   }));
   const txRows = (userId, txs) => txs.map(t => ({
     id: String(t.id), owner_id: userId, client_id: String(t.clientId),
     type: t.type, amount: Number(t.amount), description: String(t.desc || ''),
-    occurred_at: new Date(Number(t.date)).toISOString(), due_at: null
+    occurred_at: new Date(Number(t.date)).toISOString(), due_at: t.dueAt ? new Date(t.dueAt).toISOString() : null
   }));
   const toLocal = (clients, txs) => ({
-    clients: clients.map(c => ({ id: c.id, name: c.name, phone: c.phone || '', createdAt: new Date(c.created_at).getTime() })),
-    transactions: txs.map(t => ({ id: t.id, clientId: t.client_id, type: t.type, amount: Number(t.amount), desc: t.description || '', date: new Date(t.occurred_at).getTime() }))
+    clients: clients.map(c => ({ id: c.id, name: c.name, phone: c.phone || '', notes: c.notes || '', createdAt: new Date(c.created_at).getTime() })),
+    transactions: txs.map(t => ({ id: t.id, clientId: t.client_id, type: t.type, amount: Number(t.amount), desc: t.description || '', date: new Date(t.occurred_at).getTime(), ...(t.due_at ? {dueAt:t.due_at} : {}) }))
   });
   const validate = (data) => {
     const ids = new Set(data.clients.map(c => String(c.id)));
@@ -99,6 +102,12 @@
       setStatus('Encontramos ' + remote.clients.length + ' clientes y ' + remote.transactions.length + ' movimientos en la nube. Pulsa “Descargar datos de la nube” para traerlos a este dispositivo.');
       $('fiados-upload-local').hidden = true;
       $('fiados-download-cloud').hidden = false;
+    } else if (localCount && remoteCount && localStorage.getItem(PENDING_KEY) === '1') {
+      mergeBaseWithoutDeleting(remote);
+      state.mode = 'ready';
+      setStatus('Se recuperaron cambios pendientes. Se conservaron los datos del celular y se preparó la sincronización.');
+      $('fiados-upload-local').hidden = true;
+      $('fiados-download-cloud').hidden = true;
     } else if (localCount && remoteCount) {
       const normalize = (x) => JSON.stringify({
         clients: [...x.clients].sort((a,b) => String(a.id).localeCompare(String(b.id))),
@@ -184,46 +193,81 @@
   };
   const syncCurrentLocalChange = async () => {
     if (!state.user) return;
+    markPending();
+    if (!navigator.onLine) { state.mode = 'offline-pending'; setStatus('Sin internet. Tus cambios están guardados en este celular y esperan sincronización.', true); return; }
     if (state.mode === 'syncing') { state.pendingSync = true; return; }
-    if (state.mode !== 'ready') return;
+    if (!['ready','sync-error','offline-pending'].includes(state.mode)) return;
     state.mode = 'syncing';
     try {
       await upsertLocalToCloud(localData());
       state.mode = 'ready';
-      setStatus('Cambios guardados y sincronizados.');
-      if (state.pendingSync) {
-        state.pendingSync = false;
-        await syncCurrentLocalChange();
-      }
+      clearPending();
+      setStatus('Cambios guardados y sincronizados con Supabase.');
+      if (window.FiadosModulesSync?.sync) window.FiadosModulesSync.sync().catch(e => setStatus('Datos principales sincronizados; módulos pendientes: ' + e.message, true));
+      if (state.pendingSync) { state.pendingSync = false; await syncCurrentLocalChange(); }
     } catch (e) {
-      state.mode = 'sync-error';
+      state.mode = navigator.onLine ? 'sync-error' : 'offline-pending';
       state.pendingSync = false;
-      setStatus('Guardado localmente, pero falló la sincronización: ' + (e.message || 'error') + '. Revisa la conexión antes de seguir trabajando en otro dispositivo.', true);
+      setStatus('Tus datos siguen guardados en el celular. La sincronización quedó pendiente: ' + (e.message || 'sin conexión') + '.', true);
     }
+  };
+  const resumeSync = async () => {
+    if (!navigator.onLine || !state.client || !state.user || state.busy) return;
+    try {
+      if (['local','sync-error','offline-pending'].includes(state.mode)) {
+        if (state.mode === 'local') {
+          await inspectAndOfferMigration();
+          if (state.mode === 'ready') subscribeRealtime();
+        }
+        if (localStorage.getItem(PENDING_KEY) === '1' && ['ready','sync-error','offline-pending'].includes(state.mode)) await syncCurrentLocalChange();
+      }
+      if (state.mode === 'ready' && window.FiadosModulesSync?.sync) await window.FiadosModulesSync.sync();
+    } catch (e) { setStatus('La conexión volvió, pero aún no se pudo sincronizar: ' + e.message, true); }
+  };
+  const mergeBaseWithoutDeleting = (remote) => {
+    const local = localData();
+    const clients = new Map(local.clients.map(x => [String(x.id), x]));
+    remote.clients.forEach(x => { if (!clients.has(String(x.id))) clients.set(String(x.id), x); });
+    const txs = new Map(local.transactions.map(x => [String(x.id), x]));
+    remote.transactions.forEach(x => { if (!txs.has(String(x.id))) txs.set(String(x.id), x); });
+    const merged = {clients:[...clients.values()], transactions:[...txs.values()]};
+    validate(merged);
+    localStorage.setItem(CLIENTS_KEY, JSON.stringify(merged.clients));
+    localStorage.setItem(TX_KEY, JSON.stringify(merged.transactions));
+    if (window.App && typeof window.App.render === 'function') window.App.render();
   };
   const subscribeRealtime = () => {
     if (state.channel) state.client.removeChannel(state.channel);
     if (!state.user) return;
     const uid = state.user.id;
+    const refresh = async (label) => {
+      if (state.mode !== 'ready') return;
+      try { const fresh = await fetchCloud(); mergeBaseWithoutDeleting(fresh); setStatus(label+' sincronizados desde la nube sin borrar datos locales.'); }
+      catch (e) { setStatus('No se pudo actualizar la vista: ' + e.message, true); }
+    };
     state.channel = state.client.channel('fiados-owner-' + uid)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'clients', filter: 'owner_id=eq.' + uid }, async () => {
-        if (state.mode !== 'ready') return;
-        try { const fresh = await fetchCloud(); replaceLocal(fresh); setStatus('Clientes actualizados desde tus otros dispositivos.'); }
-        catch (e) { setStatus('No se pudo actualizar la vista: ' + e.message, true); }
-      })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'transactions', filter: 'owner_id=eq.' + uid }, async () => {
-        if (state.mode !== 'ready') return;
-        try { const fresh = await fetchCloud(); replaceLocal(fresh); setStatus('Movimientos actualizados desde tus otros dispositivos.'); }
-        catch (e) { setStatus('No se pudo actualizar la vista: ' + e.message, true); }
-      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'clients', filter: 'owner_id=eq.' + uid }, () => refresh('Clientes'))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'transactions', filter: 'owner_id=eq.' + uid }, () => refresh('Movimientos'))
       .subscribe();
   };
+  const loadSupabaseLibrary = () => new Promise((resolve, reject) => {
+    if (window.supabase?.createClient) return resolve();
+    const existing = document.querySelector('script[data-fiados-supabase-loader]');
+    if (existing) { existing.addEventListener('load', resolve, {once:true}); existing.addEventListener('error', reject, {once:true}); return; }
+    const script = document.createElement('script');
+    script.src = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';
+    script.dataset.fiadosSupabaseLoader = 'true';
+    script.onload = resolve; script.onerror = () => reject(new Error('No se pudo descargar el cliente Supabase. La app seguirá funcionando localmente.'));
+    document.head.appendChild(script);
+  });
   const init = async () => {
     const panel = $('fiados-cloud-panel');
-    if (!panel) return;
-    if (!config || !window.supabase || !config.url || !config.publishableKey) {
-      setStatus('No se pudo cargar la configuración o la librería Supabase. La app sigue en modo local.', true);
-      return;
+    if (!panel || state.initializing) return;
+    state.initializing = true;
+    if (!config || !config.url || !config.publishableKey) { setStatus('Configuración de Supabase no disponible. Puedes seguir trabajando sin internet.', true); state.initializing = false; return; }
+    if (!window.supabase?.createClient) {
+      if (!navigator.onLine) { setStatus('Modo sin conexión activo. Tus datos se guardan en este celular; Supabase se conectará cuando vuelva internet.'); state.initializing = false; return; }
+      try { await loadSupabaseLibrary(); } catch (e) { setStatus(e.message, true); state.initializing = false; return; }
     }
     state.client = window.supabase.createClient(config.url, config.publishableKey, {
       auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
@@ -233,7 +277,10 @@
     $('fiados-upload-local').addEventListener('click', uploadLocal);
     $('fiados-download-cloud').addEventListener('click', downloadCloud);
     $('fiados-signout').addEventListener('click', signOut);
-    const { data, error } = await state.client.auth.getSession();
+    let sessionResult;
+    try { sessionResult = await state.client.auth.getSession(); }
+    catch (e) { setStatus('Sin conexión con Supabase. Los datos locales están disponibles y se sincronizarán al volver internet.', true); state.initializing = false; return; }
+    const { data, error } = sessionResult;
     if (error) setStatus(error.message, true);
     state.user = data && data.session ? data.session.user : null;
     refreshSessionUI();
@@ -247,10 +294,39 @@
       if (state.user) setTimeout(async () => { try { await inspectAndOfferMigration(); if (state.mode === 'ready') subscribeRealtime(); } catch(e) { setStatus(e.message, true); } }, 0);
       else { if (state.channel) state.client.removeChannel(state.channel); state.channel = null; setStatus('Sesión cerrada. Tus datos locales permanecen disponibles.'); }
     });
+    const allowedModuleTables = new Set(['payment_plans','expenses','collectors','reward_settings','reward_ledger','receipts','device_registry']);
     window.FiadosCloud = {
       syncAfterLocalSave: syncCurrentLocalChange,
-      getStatus: () => ({ signedIn: !!state.user, mode: state.mode })
+      getStatus: () => ({ signedIn: !!state.user, mode: state.mode }),
+      getClient: () => state.client,
+      getUser: () => state.user,
+      syncModuleTable: async (table, rows) => {
+        if (!state.user || !allowedModuleTables.has(table)) throw new Error('Cuenta no conectada o tabla no permitida.');
+        if (!Array.isArray(rows)) throw new Error('Datos de sincronización inválidos.');
+        if (rows.length) {
+          const { error } = await state.client.from(table).upsert(rows.map(row => ({...row, owner_id: state.user.id})), { onConflict: 'owner_id,id' });
+          if (error) throw error;
+        }
+        const { data, error } = await state.client.from(table).select('*').eq('owner_id', state.user.id);
+        if (error) throw error;
+        return data || [];
+      },
+      fetchRewardSettings: async () => {
+        if (!state.user) throw new Error('Cuenta no conectada.');
+        const { data, error } = await state.client.from('reward_settings').select('*').eq('owner_id',state.user.id).maybeSingle();
+        if (error) throw error;
+        return data;
+      },
+      saveRewardSettings: async (rate) => {
+        if (!state.user) throw new Error('Cuenta no conectada.');
+        const { error } = await state.client.from('reward_settings').upsert({owner_id:state.user.id,points_per_hundred:Number(rate)||0},{onConflict:'owner_id'});
+        if (error) throw error;
+      }
     };
+    state.initializing = false;
+    if (state.user && localStorage.getItem(PENDING_KEY) === '1' && navigator.onLine && state.mode === 'ready') syncCurrentLocalChange();
   };
+  window.addEventListener('online', () => { if (!state.client) init(); else resumeSync(); });
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') resumeSync(); });
   document.addEventListener('DOMContentLoaded', init);
 })();
