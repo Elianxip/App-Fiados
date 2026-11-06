@@ -465,3 +465,64 @@ p { color: var(--text-secondary); }
 }
 #pwa-install-button { background: #2563eb; color: white; border: 0; border-radius: 12px; padding: .8rem 1rem; font-weight: 700; }
 #pwa-install-hint { margin-top: .5rem; font-size: .8rem; line-height: 1.45; color: var(--text-secondary); }
+
+/* Fiados 2.0 PRO additions */
+.fiados-v2-backup-actions { display:flex; flex-wrap:wrap; gap:.75rem; margin-top:1rem; }
+#pro-dashboard-extra .stats-grid { margin-top:1.25rem; }
+#pro-dashboard-extra .stat-card { min-width:0; }
+#view-agenda .transaction-item, #view-reportes .transaction-item { display:flex;justify-content:space-between;align-items:center;gap:1rem;padding:1rem 0;border-bottom:1px solid var(--glass-border); }
+#view-agenda .transaction-item:last-child, #view-reportes .transaction-item:last-child { border-bottom:0; }
+#view-agenda .transaction-item h3 { margin-bottom:.25rem; }
+@media(max-width:760px){
+ .fiados-v2-backup-actions .btn { flex:1 1 100%; }
+ #view-agenda .transaction-item { align-items:flex-start; flex-direction:column; }
+}
+@media print {
+ body { background:#fff!important;color:#111!important; }
+ .navbar,.btn,.fiados-cloud-panel,.fiados-v2-backup { display:none!important; }
+ .content { padding:0!important; }
+ .view { display:none!important; }
+ #view-reportes { display:block!important; }
+ .glass,.stat-card { background:#fff!important;color:#111!important;box-shadow:none!important;border:1px solid #ddd!important; }
+ p,.stat-info h3 { color:#333!important; }
+}
+
+
+/* WhatsApp + agenda de cobros */
+.fiados-agenda-panel{padding:1.1rem;margin:1rem 0}
+.fiados-agenda-top{display:flex;justify-content:space-between;align-items:center;gap:1rem}
+.fiados-agenda-top h2{font-size:1.2rem;margin-bottom:.35rem}
+.fiados-agenda-filters{display:flex;flex-wrap:wrap;gap:.5rem;margin:1rem 0}
+.fiados-filter{border:1px solid var(--glass-border);background:#1e293b;color:var(--text-secondary);border-radius:999px;padding:.6rem .9rem;cursor:pointer}
+.fiados-filter.active{background:var(--accent-color);color:#fff;border-color:var(--accent-color)}
+.fiados-due-card{display:flex;justify-content:space-between;align-items:center;gap:1rem;padding:1rem 0;border-top:1px solid var(--glass-border)}
+.fiados-due-title{display:flex;align-items:center;gap:.6rem;flex-wrap:wrap}
+.fiados-due-title strong{font-size:1.05rem}
+.fiados-due-main p{font-size:.88rem;margin:.35rem 0}
+.fiados-due-balance{display:block;margin-top:.35rem;font-size:1.15rem}
+.fiados-status{font-size:.75rem;font-weight:700;border-radius:999px;padding:.25rem .55rem;background:#334155}
+.fiados-status.overdue{background:rgba(239,68,68,.18);color:#fca5a5}
+.fiados-status.today{background:rgba(245,158,11,.18);color:#fcd34d}
+.fiados-status.upcoming{background:rgba(59,130,246,.18);color:#93c5fd}
+.fiados-no-phone,.fiados-agenda-note,.fiados-wa-hint{font-size:.85rem;color:var(--text-secondary)}
+.fiados-agenda-note{margin-top:1rem;line-height:1.5}
+.fiados-empty{padding:1.5rem 0;color:var(--text-secondary)}
+.fiados-agenda-shortcuts{display:flex;gap:.75rem;margin-top:1rem;flex-wrap:wrap}
+.fiados-wa-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.78);backdrop-filter:blur(5px);z-index:2000;display:flex;align-items:center;justify-content:center;padding:1rem}
+.fiados-wa-backdrop[hidden]{display:none}
+.fiados-wa-modal{width:min(100%,520px);padding:1.25rem}
+.fiados-wa-modal h2{font-size:1.2rem}
+.fiados-wa-modal textarea{width:100%;resize:vertical;min-height:150px;margin:1rem 0;padding:.9rem;background:#0b1220;color:#f8fafc;border:1px solid var(--glass-border);border-radius:10px;font:inherit;line-height:1.5}
+.fiados-wa-actions{display:flex;justify-content:flex-end;gap:.75rem;flex-wrap:wrap}
+.fiados-wa-actions a{text-decoration:none}
+@media(max-width:760px){
+ .fiados-agenda-top{align-items:flex-start;flex-direction:column}
+ .fiados-due-card{align-items:stretch;flex-direction:column}
+ .fiados-due-card .btn{width:100%}
+ .fiados-agenda-shortcuts,.fiados-agenda-shortcuts .btn{width:100%}
+ .fiados-wa-actions{flex-direction:column}
+ .fiados-wa-actions>*{width:100%;text-align:center}
+}
+
+/* Etapa 1 — planes de pago y estado de cuenta */
+.fiados-plan-panel{padding:1.25rem;margin:1.25rem 0}.fiados-plan-heading,.fiados-plan-actions,.fiados-plan-summary,.fiados-installment{display:flex;align-items:center;justify-content:space-between;gap:1rem}.fiados-plan-heading{flex-wrap:wrap;margin-bottom:1rem}.fiados-plan-heading p,.fiados-plan-note,.fiados-plan-empty{color:var(--text-secondary);margin-top:.35rem}.fiados-plan-actions{flex-wrap:wrap}.fiados-plan-form{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:1rem}.fiados-plan-form label{display:grid;gap:.4rem;color:var(--text-secondary);font-size:.9rem}.fiados-plan-form input,.fiados-plan-form select{width:100%;padding:.75rem;border:1px solid var(--glass-border);border-radius:9px;background:var(--bg-secondary);color:var(--text-primary)}.fiados-plan-form .fiados-plan-actions,.fiados-plan-form .fiados-plan-note{grid-column:1/-1}.fiados-plan-summary{flex-wrap:wrap;padding:1rem;background:rgba(59,130,246,.1);border-radius:10px;margin-bottom:.75rem}.fiados-installment{padding:.85rem;border-bottom:1px solid var(--glass-border)}.fiados-installment div{display:grid;gap:.25rem}.fiados-installment small{color:var(--text-secondary)}.fiados-plan-note{font-size:.85rem;grid-column:1/-1}@media(max-width:600px){.fiados-plan-heading,.fiados-plan-summary{align-items:flex-start;flex-direction:column}.fiados-plan-actions{width:100%}.fiados-plan-actions .btn{flex:1}}
