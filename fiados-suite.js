@@ -84,14 +84,66 @@ function renderRewards(){
  panel('Historial de canjes','<div class="suite-list">'+(read('fiados_reward_ledger').slice().reverse().map(x=>'<article><b>'+esc(x.reward)+'</b><span>'+esc(clients().find(c=>c.id===x.clientId)?.name||'Cliente')+' · '+Number(x.points)+' puntos · '+esc(x.date)+'</span></article>').join('')||'<p>No hay canjes registrados.</p>')+'</div>');
 }
 async function hashPin(pin,salt){const enc=new TextEncoder();const key=await crypto.subtle.importKey('raw',enc.encode(pin),'PBKDF2',false,['deriveBits']);const bits=await crypto.subtle.deriveBits({name:'PBKDF2',salt:enc.encode(salt),iterations:120000,hash:'SHA-256'},key,256);return [...new Uint8Array(bits)].map(x=>x.toString(16).padStart(2,'0')).join('')}
+function b64url(bytes){
+ const arr=bytes instanceof Uint8Array?bytes:new Uint8Array(bytes);
+ let binary='';arr.forEach(x=>binary+=String.fromCharCode(x));
+ return btoa(binary).replace(/\\+/g,'-').replace(/\\//g,'_').replace(/=+$/,'');
+}
+function fromB64url(value){
+ const raw=String(value).replace(/-/g,'+').replace(/_/g,'/');
+ const padded=raw+'='.repeat((4-raw.length%4)%4);
+ return Uint8Array.from(atob(padded),x=>x.charCodeAt(0));
+}
+function derToRaw(signature){
+ const b=new Uint8Array(signature);if(b.length===64)return b;
+ if(b[0]!==0x30)throw new Error('Firma biométrica no reconocida.');
+ let p=2;if(b[p++]!==0x02)throw new Error('Firma biométrica inválida.');
+ const rl=b[p++],r=b.slice(p,p+rl);p+=rl;
+ if(b[p++]!==0x02)throw new Error('Firma biométrica inválida.');
+ const sl=b[p++],s=b.slice(p,p+sl);
+ const trim=x=>{let i=0;while(x.length-i>32&&x[i]===0)i++;const v=x.slice(i);if(v.length>32)throw new Error('Firma fuera de rango.');return v};
+ const rr=trim(r),ss=trim(s),out=new Uint8Array(64);out.set(rr,32-rr.length);out.set(ss,64-ss.length);return out;
+}
+async function registerBiometric(){
+ if(!settings().pinHash){alert('Primero crea un PIN de respaldo.');return}
+ if(!window.isSecureContext||!window.PublicKeyCredential||!navigator.credentials?.create){alert('Este navegador o dispositivo no admite autenticación biométrica segura por HTTPS.');return}
+ try{
+  const challenge=crypto.getRandomValues(new Uint8Array(32)),userId=crypto.getRandomValues(new Uint8Array(16));
+  const credential=await navigator.credentials.create({publicKey:{challenge,rp:{name:'Fiados 2.0',id:location.hostname},user:{id:userId,name:'fiados-local',displayName:'Fiados 2.0'},pubKeyCredParams:[{type:'public-key',alg:-7},{type:'public-key',alg:-257}],authenticatorSelection:{authenticatorAttachment:'platform',userVerification:'required'},timeout:60000,attestation:'none'}});
+  const publicKey=credential.response.getPublicKey?.(),algorithm=credential.response.getPublicKeyAlgorithm?.();
+  if(!publicKey||![-7,-257].includes(algorithm))throw new Error('El autenticador no entregó una clave pública compatible. Usa el PIN.');
+  save(K.settings,{...settings(),biometric:{credentialId:credential.id,publicKey:b64url(publicKey),algorithm,registeredAt:Date.now()}});
+  renderSecurity();alert('Autenticación del dispositivo registrada. Podrás usar huella, rostro o el método de verificación que ofrezca Android; conserva tu PIN como respaldo.');
+ }catch(e){alert('No se pudo registrar la biometría: '+(e.name==='NotAllowedError'?'se canceló o no hay autenticador disponible.':e.message))}
+}
+async function authenticateBiometric(overlay){
+ const bio=settings().biometric;if(!bio)return;
+ const status=overlay?.querySelector('[data-status]');
+ try{
+  const challenge=crypto.getRandomValues(new Uint8Array(32));
+  const credential=await navigator.credentials.get({publicKey:{challenge,allowCredentials:[{type:'public-key',id:fromB64url(bio.credentialId)}],userVerification:'required',timeout:60000}});
+  const authData=new Uint8Array(credential.response.authenticatorData),clientBytes=new Uint8Array(credential.response.clientDataJSON),signature=new Uint8Array(credential.response.signature);
+  const client=JSON.parse(new TextDecoder().decode(clientBytes));
+  if(client.type!=='webauthn.get'||client.origin!==location.origin||client.challenge!==b64url(challenge))throw new Error('El desafío u origen no coincide.');
+  const rpHash=new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(location.hostname)));
+  if(authData.length<37||rpHash.some((x,i)=>x!==authData[i])||(authData[32]&0x05)!==0x05)throw new Error('El dispositivo no confirmó la verificación del usuario.');
+  const keyAlgorithm=Number(bio.algorithm),key=await crypto.subtle.importKey('spki',fromB64url(bio.publicKey),keyAlgorithm===-7?{name:'ECDSA',namedCurve:'P-256'}:{name:'RSASSA-PKCS1-v1_5',hash:'SHA-256'},false,['verify']);
+  const clientHash=new Uint8Array(await crypto.subtle.digest('SHA-256',clientBytes)),signed=new Uint8Array(authData.length+clientHash.length);signed.set(authData);signed.set(clientHash,authData.length);
+  const sig=keyAlgorithm===-7?derToRaw(signature):signature;
+  const valid=await crypto.subtle.verify(keyAlgorithm===-7?{name:'ECDSA',hash:'SHA-256'}:{name:'RSASSA-PKCS1-v1_5'},key,sig,signed);
+  if(!valid)throw new Error('La firma del autenticador no es válida.');
+  overlay?.remove();
+ }catch(e){if(status)status.textContent='No se pudo verificar la biometría: '+(e.name==='NotAllowedError'?'cancelada o no disponible.':e.message)}
+}
 function lockScreen(){
  if(document.getElementById('fiados-pin-overlay'))return;
- const o=document.createElement('div');o.id='fiados-pin-overlay';o.className='fiados-pin-overlay';o.innerHTML='<form id="fiados-unlock" class="glass"><h2>Fiados 2.0 bloqueado</h2><p>Introduce tu PIN para continuar.</p><input name="pin" type="password" inputmode="numeric" pattern="[0-9]{4,8}" minlength="4" maxlength="8" required placeholder="PIN"><button class="btn btn-primary">Desbloquear</button><p data-status></p></form>';document.body.append(o);
- o.querySelector('form').addEventListener('submit',async e=>{e.preventDefault();const p=e.target.pin.value,s=settings();if(await hashPin(p,s.salt)===s.pinHash){o.remove();}else{e.target.reset();o.querySelector('[data-status]').textContent='PIN incorrecto.'}});
+ const bio=settings().biometric;
+ const o=document.createElement('div');o.id='fiados-pin-overlay';o.className='fiados-pin-overlay';o.innerHTML='<form id="fiados-unlock" class="glass"><h2>Fiados 2.0 bloqueado</h2><p>Desbloquea con tu PIN o con la verificación del dispositivo.</p><input name="pin" type="password" inputmode="numeric" pattern="[0-9]{4,8}" minlength="4" maxlength="8" required placeholder="PIN"><button class="btn btn-primary">Desbloquear con PIN</button>'+(bio?'<button type="button" class="btn btn-secondary" data-action="unlock-biometric">Usar huella / rostro</button>':'')+'<p data-status></p></form>';document.body.append(o);
+ o.querySelector('form').addEventListener('submit',async e=>{e.preventDefault();const p=e.target.pin.value,s=settings();if(await hashPin(p,s.salt)===s.pinHash){o.remove()}else{e.target.reset();o.querySelector('[data-status]').textContent='PIN incorrecto.'}});
 }
 function renderSecurity(){
- const root=document.getElementById('suite-seguridad');if(!root)return;const s=settings();
- root.innerHTML=panel('Bloqueo con PIN','<form data-form="pin" class="suite-form"><p>El PIN se guarda como hash PBKDF2, nunca en texto plano. El bloqueo es local a este navegador.</p>'+field(s.pinHash?'Cambiar PIN':'Crear PIN','pin','password','minlength="4" maxlength="8" pattern="[0-9]{4,8}" inputmode="numeric"')+'<button class="btn btn-primary">Guardar PIN</button></form>'+(s.pinHash?btn('lock-now','Bloquear ahora','btn btn-secondary'):'')+'<p class="suite-muted">La biometría WebAuthn necesita un servidor que emita y valide desafíos criptográficos; no se activará con una simulación local.</p>');
+ const root=document.getElementById('suite-seguridad');if(!root)return;const s=settings(),bioReady=!!s.biometric;
+ root.innerHTML=panel('Bloqueo con PIN y biometría','<form data-form="pin" class="suite-form"><p>El PIN se guarda como hash PBKDF2. El bloqueo es local a este navegador y se activa al iniciar, al ocultar la app y por inactividad.</p>'+field(s.pinHash?'Cambiar PIN':'Crear PIN','pin','password','minlength="4" maxlength="8" pattern="[0-9]{4,8}" inputmode="numeric"')+'<button class="btn btn-primary">Guardar PIN</button></form>'+(s.pinHash?btn('lock-now','Bloquear ahora','btn btn-secondary'):'')+(s.pinHash?(bioReady?btn('remove-biometric','Quitar biometría','btn btn-secondary'):btn('register-biometric','Registrar huella / rostro','btn btn-secondary')):'<p class="suite-muted">Crea primero un PIN para habilitar la biometría como método alternativo.</p>')+'<p class="suite-muted">'+(bioReady?'El autenticador del dispositivo exige verificación del usuario y la app comprueba localmente la firma y el origen.':'La biometría requiere un autenticador de plataforma compatible y HTTPS. El PIN seguirá disponible como respaldo.')+' Esta protección local no sustituye la seguridad de una cuenta en servidor.</p>');
 }
 const BACKUP_KEYS=['fiado_clients','fiado_txs','fiados_payment_plans','fiados_expenses','fiados_collectors','fiados_rewards','fiados_reward_ledger','fiados_receipts','fiados_whatsapp_logs','fiados_suite_settings','fiados_devices'];
 function backupSnapshot(){
@@ -189,7 +241,7 @@ function bind(){
  if(a.startsWith('receipt:'))receipt(a.split(':')[1]);
  else if(a.startsWith('delete-expense:')){if(confirm('¿Eliminar este gasto?')){save(K.expenses,read(K.expenses).filter(x=>x.id!==a.split(':')[1]));renderAll()}}
  else if(a.startsWith('delete-collector:')){save(K.collectors,read(K.collectors).filter(x=>x.id!==a.split(':')[1]));renderAll()}
- else if(a==='lock-now')lockScreen();else if(a==='scan')scanBarcode();else if(a==='verify-receipt')scanBarcode('receipt');
+ else if(a==='lock-now')lockScreen();else if(a==='register-biometric')registerBiometric();else if(a==='remove-biometric'){if(confirm('¿Quitar la biometría de este celular?')){const s={...settings()};delete s.biometric;save(K.settings,s);renderSecurity()}}else if(a==='unlock-biometric')authenticateBiometric(document.getElementById('fiados-pin-overlay'));else if(a==='scan')scanBarcode();else if(a==='verify-receipt')scanBarcode('receipt');
  else if(a==='device-backup')exportBackup()
  });
  document.addEventListener('submit',async e=>{const f=e.target;if(!f.dataset.form)return;e.preventDefault();const d=Object.fromEntries(new FormData(f));
