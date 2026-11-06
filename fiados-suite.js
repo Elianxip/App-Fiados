@@ -6,7 +6,7 @@
 'use strict';
 const K={expenses:'fiados_expenses',collectors:'fiados_collectors',rewards:'fiados_rewards',receipts:'fiados_receipts',devices:'fiados_devices',settings:'fiados_suite_settings'};
 const read=(k,d=[])=>{try{const v=JSON.parse(localStorage.getItem(k)||'null');return v===null?d:v}catch{return d}};
-const save=(k,v)=>localStorage.setItem(k,JSON.stringify(v));
+const save=(k,v)=>{localStorage.setItem(k,JSON.stringify(v));if(window.FiadosModulesSync&&window.FiadosCloud?.getStatus?.().signedIn&&window.FiadosCloud.getStatus().mode==='ready')queueMicrotask(()=>window.FiadosModulesSync.sync().catch(()=>{}));};
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const money=n=>new Intl.NumberFormat('es-DO',{style:'currency',currency:'DOP'}).format(Number(n)||0);
 const clients=()=>DataStore.getClients();
