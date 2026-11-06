@@ -127,7 +127,7 @@ end $$;
 do $$
 declare t text;
 begin
-  foreach t in array array['payment_plans','expenses','collectors','reward_settings','reward_ledger','receipts','device_registry'] loop
+  foreach t in array array['payment_plans','expenses','collectors','reward_settings','reward_ledger','receipts','device_registry','whatsapp_drafts'] loop
     if not exists (
       select 1 from pg_publication_tables
       where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = t
