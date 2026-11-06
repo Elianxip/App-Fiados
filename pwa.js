@@ -9,6 +9,13 @@
     button.type = 'button';
     button.textContent = 'Instalar Fiados 2.0';
     button.hidden = true;
+    const connection = document.createElement('p');
+    connection.id = 'fiados-connection-status';
+    connection.setAttribute('role','status');
+    connection.style.cssText = 'font-size:12px;margin:8px 0;color:var(--text-secondary,#94a3b8)';
+    const updateConnection = () => { connection.textContent = navigator.onLine ? '● Con conexión · sincronización disponible' : '● Sin internet · trabajando con datos guardados en este celular'; };
+    updateConnection();
+    window.addEventListener('online',updateConnection); window.addEventListener('offline',updateConnection);
     const hint = document.createElement('p');
     hint.id = 'pwa-install-hint';
     hint.textContent = 'En Android, instala Fiados 2.0 para abrirlo como una app desde tu pantalla de inicio.';
@@ -24,7 +31,7 @@
       installPrompt = null;
       button.hidden = true;
     });
-    header.append(button, hint);
+    header.append(connection, button, hint);
   };
   document.addEventListener('DOMContentLoaded', async () => {
     addInstallControl();
