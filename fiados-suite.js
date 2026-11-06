@@ -149,7 +149,7 @@ function renderModuleLauncher(){
  const section=document.createElement('section');section.id='fiados-module-launcher';section.className='glass module-launcher';
  section.innerHTML='<h2>Todas las funciones de Fiados 2.0</h2><p>Entra directamente a cada herramienta. Desliza el menú inferior para recorrer las secciones.</p><div class="module-launcher-grid">'+items.map(([id,name,desc])=>'<button type="button" class="module-shortcut" data-module-view="'+id+'"><strong>'+name+'</strong><span>'+desc+'</span></button>').join('')+'</div>';
  dashboard.appendChild(section);
- section.addEventListener('click',e=>{const b=e.target.closest('[data-module-view]');if(b&&window.App?.navigate)window.App.navigate(b.dataset.moduleView)});
+ section.addEventListener('click',e=>{const b=e.target.closest('[data-module-view]');if(!b)return;const nav=document.querySelector('.nav-item[data-view="'+b.dataset.moduleView+'"]');if(nav)nav.click()});
 }
 function renderAll(){renderExpenses();renderFinance();renderReceipts();renderTeam();renderRewards();renderSecurity();renderDevices()}
 function receipt(id){
