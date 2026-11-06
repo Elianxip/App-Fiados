@@ -15,6 +15,8 @@
     }
   };
 
+  const readValue = (key, fallback) => { try { const value = JSON.parse(localStorage.getItem(key) || 'null'); return value === null ? fallback : value; } catch { throw new Error('El módulo '+key+' tiene datos inválidos. No se modificó nada.'); } };
+
   const snapshot = () => ({
     app: 'Fiados',
     backupVersion: BACKUP_VERSION,
@@ -24,8 +26,9 @@
     paymentPlans: readArray('fiados_payment_plans'),
     expenses: readArray('fiados_expenses'),
     collectors: readArray('fiados_collectors'),
-    rewards: readArray('fiados_rewards'),
-    receipts: readArray('fiados_receipts')
+    rewardSettings: readValue('fiados_rewards', {rate:1}),
+    receipts: readArray('fiados_receipts'),
+    devices: readValue('fiados_devices', {})
   });
 
   const validate = (data) => {
@@ -41,7 +44,9 @@
       ids.add(c.id);
     }
     if (data.paymentPlans !== undefined && !Array.isArray(data.paymentPlans)) throw new Error('Los planes de pago del respaldo no son válidos.');
-    for (const key of ['expenses','collectors','rewards','receipts']) if (data[key] !== undefined && !Array.isArray(data[key])) throw new Error('El módulo '+key+' del respaldo no es válido.');
+    for (const key of ['expenses','collectors','receipts']) if (data[key] !== undefined && !Array.isArray(data[key])) throw new Error('El módulo '+key+' del respaldo no es válido.');
+    if (data.rewardSettings !== undefined && (!data.rewardSettings || typeof data.rewardSettings !== 'object' || Array.isArray(data.rewardSettings))) throw new Error('La configuración de recompensas del respaldo no es válida.');
+    if (data.devices !== undefined && (!data.devices || typeof data.devices !== 'object' || Array.isArray(data.devices))) throw new Error('Los dispositivos del respaldo no son válidos.');
     const txIds = new Set();
     for (const tx of data.transactions) {
       if (!tx || typeof tx.id !== 'string' || !ids.has(tx.clientId) ||
@@ -123,7 +128,9 @@
       localStorage.setItem(CLIENTS_KEY, JSON.stringify(data.clients));
       localStorage.setItem(TX_KEY, JSON.stringify(data.transactions));
       if (Array.isArray(data.paymentPlans)) localStorage.setItem('fiados_payment_plans', JSON.stringify(data.paymentPlans));
-      for (const key of ['expenses','collectors','rewards','receipts']) if (Array.isArray(data[key])) localStorage.setItem('fiados_'+key, JSON.stringify(data[key]));
+      for (const key of ['expenses','collectors','receipts']) if (Array.isArray(data[key])) localStorage.setItem('fiados_'+key, JSON.stringify(data[key]));
+      if (data.rewardSettings) localStorage.setItem('fiados_rewards', JSON.stringify(data.rewardSettings));
+      if (data.devices) localStorage.setItem('fiados_devices', JSON.stringify(data.devices));
       status.textContent = 'Respaldo restaurado. Recargando la aplicación…';
       window.location.reload();
     } catch (error) {
