@@ -60,6 +60,6 @@ function install(){
 }
 document.addEventListener('DOMContentLoaded',install);
 window.addEventListener('online',()=>{const api=window.FiadosCloud;if(api?.getStatus?.().mode==='ready')sync().then(out=>{const el=document.getElementById('fiados-sync-modules-status');if(el)el.textContent='Módulos sincronizados al recuperar internet: '+out.join(' · ')}).catch(e=>{const el=document.getElementById('fiados-sync-modules-status');if(el)el.textContent='Módulos guardados localmente; sincronización pendiente: '+e.message})});
-window.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&navigator.onLine&&window.FiadosCloud?.getStatus?.().mode==='ready')sync().catch(()=>{})});
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&navigator.onLine&&window.FiadosCloud?.getStatus?.().mode==='ready')sync().catch(()=>{})});
 window.FiadosModulesSync={sync};
 })();
