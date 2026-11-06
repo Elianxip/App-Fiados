@@ -21,7 +21,11 @@
     exportedAt: new Date().toISOString(),
     clients: readArray(CLIENTS_KEY),
     transactions: readArray(TX_KEY),
-    paymentPlans: readArray('fiados_payment_plans')
+    paymentPlans: readArray('fiados_payment_plans'),
+    expenses: readArray('fiados_expenses'),
+    collectors: readArray('fiados_collectors'),
+    rewards: readArray('fiados_rewards'),
+    receipts: readArray('fiados_receipts')
   });
 
   const validate = (data) => {
@@ -37,6 +41,7 @@
       ids.add(c.id);
     }
     if (data.paymentPlans !== undefined && !Array.isArray(data.paymentPlans)) throw new Error('Los planes de pago del respaldo no son válidos.');
+    for (const key of ['expenses','collectors','rewards','receipts']) if (data[key] !== undefined && !Array.isArray(data[key])) throw new Error('El módulo '+key+' del respaldo no es válido.');
     const txIds = new Set();
     for (const tx of data.transactions) {
       if (!tx || typeof tx.id !== 'string' || !ids.has(tx.clientId) ||
@@ -118,6 +123,7 @@
       localStorage.setItem(CLIENTS_KEY, JSON.stringify(data.clients));
       localStorage.setItem(TX_KEY, JSON.stringify(data.transactions));
       if (Array.isArray(data.paymentPlans)) localStorage.setItem('fiados_payment_plans', JSON.stringify(data.paymentPlans));
+      for (const key of ['expenses','collectors','rewards','receipts']) if (Array.isArray(data[key])) localStorage.setItem('fiados_'+key, JSON.stringify(data[key]));
       status.textContent = 'Respaldo restaurado. Recargando la aplicación…';
       window.location.reload();
     } catch (error) {
