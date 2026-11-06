@@ -66,7 +66,10 @@
       const current=Math.max(0,DataStore.getClientBalance(client.id));
       if(!Number.isFinite(total)||total<=0||total>current+0.005){alert('El monto debe ser mayor que cero y no superar el saldo actual ('+money(current)+').');return;}
       if(!first||dateKey(first+'T12:00:00-04:00')<dateKey(Date.now())){alert('Selecciona una fecha de hoy o futura.');return;}
-      const plans=readPlans().filter(p=>p.clientId!==client.id);
+      const plans=readPlans();
+      const active=plans.find(p=>p.clientId===client.id&&!p.closedAt);
+      if(active&&!confirm('Este cliente ya tiene un plan activo. ¿Cerrar ese plan y crear uno nuevo? El historial se conservará.'))return;
+      if(active)active.closedAt=Date.now();
       plans.push(createPlan(client.id,total,count,frequency,first));savePlans(plans);renderPlans();
     });
   };
@@ -74,14 +77,15 @@
     ensurePanel();
     const client=clientById(App.currentClientId); if(!client)return;
     const root=$('fiados-plan-content'); if(!root)return;
-    const plan=readPlans().filter(p=>p.clientId===client.id).sort((a,b)=>b.createdAt-a.createdAt)[0];
+    const clientPlans=readPlans().filter(p=>p.clientId===client.id).sort((a,b)=>b.createdAt-a.createdAt);
+    const plan=clientPlans.find(p=>!p.closedAt)||clientPlans[0];
     if(!plan){root.innerHTML='<p class="fiados-plan-empty">Todavía no hay un plan de pago para este cliente.</p>';return;}
     const rows=installmentsFor(plan);
     const paid=rows.reduce((s,x)=>s+x.paid,0), remaining=Math.max(0,plan.total-paid);
     root.innerHTML='<div class="fiados-plan-summary"><span>Plan: '+money(plan.total)+'</span><span>Pagado: '+money(paid)+'</span><strong>Restante del plan: '+money(remaining)+'</strong></div><div class="fiados-installments">'+rows.map(x=>'<article class="fiados-installment"><div><strong>Cuota '+(x.index+1)+'</strong><small>'+esc(dateLabel(x.dueDate))+'</small></div><div><strong>'+money(x.amount)+'</strong><small>'+esc(x.status)+(x.remaining>0?' · Restan '+money(x.remaining):'')+'</small></div></article>').join('')+'</div><button type="button" class="btn btn-secondary" id="fiados-plan-remove">Cerrar plan</button>';
     $('fiados-plan-remove').addEventListener('click',()=>{
       if(!confirm('¿Cerrar este plan? No se borrarán clientes, fiados ni abonos.'))return;
-      savePlans(readPlans().filter(p=>p.id!==plan.id));renderPlans();
+      savePlans(readPlans().map(p=>p.id===plan.id?{...p,closedAt:Date.now()}:p));renderPlans();
     });
   };
   const shareStatementWhatsApp = () => {
