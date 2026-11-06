@@ -348,6 +348,11 @@ const App = {
     }
 };
 
+// Exponer la API para los módulos Fiados 2.0 cargados como scripts clásicos.
+// Se mantienen las mismas clases/instancias; no se migra ni modifica el almacenamiento.
+window.DataStore = DataStore;
+window.App = App;
+
 // Initialize App
 document.addEventListener('DOMContentLoaded', () => {
     App.init();

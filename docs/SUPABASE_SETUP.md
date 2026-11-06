@@ -10,6 +10,14 @@
 
 No ejecutes scripts SQL de otras aplicaciones ni cambies el proyecto que contiene datos ajenos.
 
+## 1A. Sincronización de módulos adicionales (opcional)
+
+La aplicación puede operar en un solo celular sin esta migración: los gastos, planes, puntos, recibos y cobradores se guardan localmente y se incluyen en el respaldo JSON.
+
+Si deseas sincronizar esos módulos con Supabase, primero confirma que 0001 está aplicada y revisa el archivo supabase/migrations/0003_fiados_v2_modules_sync.sql. Luego ejecútalo manualmente en el SQL Editor del proyecto correcto. No ejecutes 0002 ni scripts de otras aplicaciones. Esta guía no ejecuta SQL ni cambia tu base de datos.
+
+Después de aplicar 0003, inicia sesión y usa “Sincronizar todos los módulos”. Si la migración no está aplicada, conserva los cambios locales y no fuerces la sincronización.
+
 ## 2. Configurar autenticación
 
 En **Authentication → URL Configuration**:

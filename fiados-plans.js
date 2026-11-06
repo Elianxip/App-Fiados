@@ -46,11 +46,12 @@
   const ensurePanel = () => {
     const view=$('view-client-detail'); if(!view||$('fiados-plan-panel'))return;
     const panel=document.createElement('section'); panel.id='fiados-plan-panel'; panel.className='glass fiados-plan-panel';
-    panel.innerHTML='<div class="fiados-plan-heading"><div><h2>Plan de pago</h2><p>Organiza el saldo en cuotas sin alterar los movimientos registrados.</p></div><div class="fiados-plan-actions"><button class="btn btn-secondary" id="fiados-statement" type="button">Estado de cuenta</button><button class="btn btn-primary" id="fiados-new-plan" type="button">Crear plan</button></div></div><div id="fiados-plan-content"></div>';
+    panel.innerHTML='<div class="fiados-plan-heading"><div><h2>Plan de pago</h2><p>Organiza el saldo en cuotas sin alterar los movimientos registrados.</p></div><div class="fiados-plan-actions"><button class="btn btn-secondary" id="fiados-statement" type="button">Estado de cuenta / PDF</button><button class="btn btn-secondary" id="fiados-statement-whatsapp" type="button">Compartir WhatsApp</button><button class="btn btn-primary" id="fiados-new-plan" type="button">Crear plan</button></div></div><div id="fiados-plan-content"></div>';
     const history=view.querySelector('.history-section');
     if(history) history.after(panel); else view.appendChild(panel);
     $('fiados-new-plan').addEventListener('click',showPlanForm);
     $('fiados-statement').addEventListener('click',printStatement);
+    $('fiados-statement-whatsapp').addEventListener('click',shareStatementWhatsApp);
   };
   const showPlanForm = () => {
     const client=clientById(App.currentClientId); if(!client)return;
@@ -65,7 +66,10 @@
       const current=Math.max(0,DataStore.getClientBalance(client.id));
       if(!Number.isFinite(total)||total<=0||total>current+0.005){alert('El monto debe ser mayor que cero y no superar el saldo actual ('+money(current)+').');return;}
       if(!first||dateKey(first+'T12:00:00-04:00')<dateKey(Date.now())){alert('Selecciona una fecha de hoy o futura.');return;}
-      const plans=readPlans().filter(p=>p.clientId!==client.id);
+      const plans=readPlans();
+      const active=plans.find(p=>p.clientId===client.id&&!p.closedAt);
+      if(active&&!confirm('Este cliente ya tiene un plan activo. ¿Cerrar ese plan y crear uno nuevo? El historial se conservará.'))return;
+      if(active)active.closedAt=Date.now();
       plans.push(createPlan(client.id,total,count,frequency,first));savePlans(plans);renderPlans();
     });
   };
@@ -73,15 +77,30 @@
     ensurePanel();
     const client=clientById(App.currentClientId); if(!client)return;
     const root=$('fiados-plan-content'); if(!root)return;
-    const plan=readPlans().filter(p=>p.clientId===client.id).sort((a,b)=>b.createdAt-a.createdAt)[0];
+    const clientPlans=readPlans().filter(p=>p.clientId===client.id).sort((a,b)=>b.createdAt-a.createdAt);
+    const plan=clientPlans.find(p=>!p.closedAt)||clientPlans[0];
     if(!plan){root.innerHTML='<p class="fiados-plan-empty">Todavía no hay un plan de pago para este cliente.</p>';return;}
     const rows=installmentsFor(plan);
     const paid=rows.reduce((s,x)=>s+x.paid,0), remaining=Math.max(0,plan.total-paid);
-    root.innerHTML='<div class="fiados-plan-summary"><span>Plan: '+money(plan.total)+'</span><span>Pagado: '+money(paid)+'</span><strong>Restante del plan: '+money(remaining)+'</strong></div><div class="fiados-installments">'+rows.map(x=>'<article class="fiados-installment"><div><strong>Cuota '+(x.index+1)+'</strong><small>'+esc(dateLabel(x.dueDate))+'</small></div><div><strong>'+money(x.amount)+'</strong><small>'+esc(x.status)+(x.remaining>0?' · Restan '+money(x.remaining):'')+'</small></div></article>').join('')+'</div><button type="button" class="btn btn-secondary" id="fiados-plan-remove">Cerrar plan</button>';
-    $('fiados-plan-remove').addEventListener('click',()=>{
-      if(!confirm('¿Cerrar este plan? No se borrarán clientes, fiados ni abonos.'))return;
-      savePlans(readPlans().filter(p=>p.id!==plan.id));renderPlans();
+    root.innerHTML='<div class="fiados-plan-summary"><span>Plan: '+money(plan.total)+'</span><span>Pagado: '+money(paid)+'</span><strong>Restante del plan: '+money(remaining)+'</strong></div><div class="fiados-installments">'+rows.map(x=>'<article class="fiados-installment"><div><strong>Cuota '+(x.index+1)+'</strong><small>'+esc(dateLabel(x.dueDate))+'</small></div><div><strong>'+money(x.amount)+'</strong><small>'+esc(x.status)+(x.remaining>0?' · Restan '+money(x.remaining):'')+'</small></div></article>').join('')+'</div>'+(plan.closedAt?'<p class="fiados-plan-note">Este plan está cerrado y se conserva como historial.</p>':'<button type="button" class="btn btn-secondary" id="fiados-plan-remove">Cerrar plan</button>')+'<details><summary>Historial de planes ('+clientPlans.length+')</summary>'+clientPlans.map(p=>'<p>'+money(p.total)+' · '+esc(p.frequency)+' · '+new Date(p.createdAt).toLocaleDateString('es-DO')+(p.closedAt?' · Cerrado':' · Activo')+'</p>').join('')+'</details>';
+    const closeButton=$('fiados-plan-remove');
+    if(closeButton)closeButton.addEventListener('click',()=>{
+      if(!confirm('¿Cerrar este plan? No se borrarán clientes, fiados, abonos ni el historial del plan.'))return;
+      savePlans(readPlans().map(p=>p.id===plan.id?{...p,closedAt:Date.now()}:p));renderPlans();
     });
+  };
+  const shareStatementWhatsApp = () => {
+    const client=clientById(App.currentClientId);if(!client)return;
+    let phone=String(client.phone||'').replace(/\D/g,'');
+    if(phone.length===10)phone='1'+phone;
+    if(phone.length<11||phone.length>15){alert('Este cliente no tiene un teléfono válido. Actualiza su número en la ficha antes de compartir.');return;}
+    const txs=DataStore.getClientTransactions(client.id),balance=DataStore.getClientBalance(client.id);
+    const lines=txs.slice().reverse().map(t=>{
+      const d=new Intl.DateTimeFormat('es-DO',{dateStyle:'short',timeZone:'America/Santo_Domingo'}).format(new Date(t.date));
+      return d+' · '+(t.type==='DEBT'?'Fiado':'Abono')+' · '+(t.desc||'Movimiento')+' · '+money(t.amount);
+    });
+    const message=['FIADOS 2.0 — Estado de cuenta','Cliente: '+client.name,'Teléfono: '+(client.phone||'No registrado'),'','Movimientos:',...lines,'','SALDO PENDIENTE: '+money(balance),'Generado: '+new Date().toLocaleString('es-DO'),'Documento informativo. El envío debe confirmarse en WhatsApp.'].join('\n');
+    window.open('https://wa.me/'+phone+'?text='+encodeURIComponent(message),'_blank','noopener,noreferrer');
   };
   const printStatement = () => {
     const client=clientById(App.currentClientId); if(!client)return;

@@ -1,45 +1,75 @@
-# Fiados 2.0 — Hoja de ruta de producto
+# Fiados 2.0 — Estado de las 10 funciones
 
-**Rama:** `fiados-2.0-foundation`  
-**Principio rector:** evolución incremental; no reemplazar la aplicación ni borrar datos históricos.
+**Principio:** evolución incremental. Se conserva la aplicación original y sus claves fiado_clients y fiado_txs. Las funciones nuevas almacenan sus datos por separado.
 
-## Etapa 1 — Cobros organizados (en desarrollo)
-- [x] Planes de pago personalizados por cliente, con cuotas y fechas programadas.
-- [x] Estado de cuenta imprimible y compartible.
-- [ ] Validar en navegador real y comprobar respaldo/restauración en móvil y escritorio.
-- [ ] Sincronizar los nuevos planes entre dispositivos con esquema y RLS revisados.
+## Estado funcional en la rama de trabajo
 
-## Etapa 2 — Comprobantes
-- [ ] Recibos digitales con identificador y código QR verificable.
-- [ ] Historial de recibos y opción de imprimir/compartir.
+1. **Puntos y recompensas**
+   - [x] Regla configurable de puntos por cada RD$100 abonados.
+   - [x] Saldo de puntos calculado por cliente.
+   - [x] Canje con validación de saldo e historial local.
+   - Nota: cambiar la regla recalcula los puntos históricos; no altera deudas ni abonos.
 
-## Etapa 3 — Control financiero
-- [ ] Registro de gastos con categorías.
-- [ ] Reporte de ingresos, gastos y utilidad neta.
-- [ ] Proyección de cobros e ingresos basada en vencimientos y cuotas.
+2. **Planes de pago personalizados**
+   - [x] Planes semanales, quincenales y mensuales con cuotas.
+   - [x] Aplicación estimada de abonos posteriores al plan a las cuotas por orden.
+   - [x] Cierre de planes sin borrar su historial.
+   - [x] Estado de cuenta imprimible/Guardar PDF y mensaje de estado de cuenta prellenado para WhatsApp.
+   - Nota: WhatsApp abre el mensaje para revisión; el usuario confirma el envío.
 
-## Etapa 4 — Seguridad
-- [ ] Bloqueo de la aplicación con PIN.
-- [ ] Biometría cuando el dispositivo y el navegador la soporten.
-- [ ] Recuperación segura y límites de intentos; nunca almacenar PIN en texto plano.
+3. **Recibos con QR**
+   - [x] Comprobante imprimible con QR generado localmente, incluso sin internet.
+   - [x] Escaneo y contraste de código, cliente, importe y fecha con el movimiento guardado en este celular.
+   - [ ] Verificación pública/fiscal desde otro dispositivo o internet; requiere endpoint seguro y backend.
 
-## Etapa 5 — Operación y equipo
-- [ ] Escáner de códigos de barras para agilizar la selección/captura de productos.
-- [ ] Usuarios/cobradores, asignación de cartera y estadísticas por cobrador.
+4. **Proyección de ingresos**
+   - [x] Proyección de cuotas pendientes a 30 y 90 días.
+   - [x] Cuotas vencidas pendientes y descuentos estimados de abonos posteriores a la creación del plan.
+   - [x] Comparativo de ingresos y gastos históricos y neto del mes.
 
-## Etapa 6 — Fidelización
-- [ ] Puntos configurables por pagos realizados.
-- [ ] Recompensas y reglas transparentes, sin alterar saldos contables.
+5. **Bloqueo PIN / huella / rostro**
+   - [x] PIN local protegido con PBKDF2; bloqueo al iniciar, al ocultar la app y por inactividad.
+   - [x] Huella/rostro mediante autenticador de plataforma WebAuthn, con desafío fresco, comprobación de origen/RP ID, bandera de verificación de usuario y firma validada localmente con la clave pública.
+   - Nota: la biometría depende de que el celular/navegador ofrezca autenticador de plataforma. Es un bloqueo local, no autenticación de servidor; el PIN queda como respaldo.
 
-## Etapa 7 — Sincronización multidispositivo
-- [ ] Centro de dispositivos y sesiones activas.
-- [ ] Estado de sincronización, conflictos y última copia.
-- [ ] Sincronización de nuevos módulos bajo políticas RLS por propietario.
+6. **Escáner de códigos de barras**
+   - [x] Cámara trasera y lectura de EAN, UPC, Code 128 y QR en navegadores compatibles.
+   - [x] Inserción del código leído en la descripción del fiado y modo de lectura de QR de recibos.
+   - Nota: depende de HTTPS, permiso de cámara y soporte de BarcodeDetector.
 
-## Reglas de seguridad y compatibilidad
-1. Mantener intactas las claves históricas `fiado_clients` y `fiado_txs`.
-2. No inventar fechas de vencimiento para deudas antiguas.
-3. Las funciones nuevas guardan sus datos por separado y deben entrar en respaldos.
-4. No ejecutar migraciones SQL ni publicar/desplegar sin autorización expresa.
-5. No afirmar que push funciona con la app cerrada hasta configurar backend, cron y suscripciones.
-6. Antes de sincronizar módulos nuevos, revisar esquema, aislamiento multiusuario y RLS.
+7. **Control de gastos**
+   - [x] Alta, categorías, historial y eliminación de gastos.
+   - [x] Cálculo del resultado neto con abonos y gastos.
+
+8. **Estado de cuenta por WhatsApp / PDF**
+   - [x] Estado de cuenta imprimible y opción del navegador para Guardar como PDF.
+   - [x] Mensaje detallado prellenado para WhatsApp.
+   - Nota: no se envía nada automáticamente.
+
+9. **Estadísticas de cobradores**
+   - [x] Alta y selección de cobrador activo.
+   - [x] Atribución de abonos nuevos y totales/cantidad por cobrador.
+   - Nota: los movimientos históricos anteriores a la atribución siguen sin cobrador.
+
+10. **Centro de sincronización y dispositivos**
+    - [x] Estado de conexión, navegador, cuenta y último respaldo.
+    - [x] Descarga de respaldo JSON con clientes, movimientos y módulos.
+    - [x] Importación aditiva validada: conserva los registros existentes y no reemplaza datos.
+    - [ ] Sincronización adicional de módulos en Supabase: requiere revisar y ejecutar manualmente la migración 0003 en el proyecto correcto.
+    - Nota: el uso de un solo celular no requiere sincronización multidispositivo para operar. Los datos siguen disponibles localmente sin internet.
+
+## WhatsApp y funcionamiento sin internet
+
+- Los recordatorios se preparan con nombre, saldo y vencimiento, se pueden editar y abren WhatsApp para confirmación manual.
+- No se afirma que el mensaje fue enviado o leído.
+- La PWA conserva recursos y datos locales offline. La primera carga de recursos necesita internet.
+- Notificaciones con la app cerrada requieren servicio push, suscripción y backend; no están habilitadas por esta rama.
+
+## Seguridad de datos y publicación
+
+- No modificar ni borrar fiado_clients ni fiado_txs.
+- No inventar vencimientos para deudas antiguas.
+- No ejecutar migraciones SQL automáticamente. 0003_fiados_v2_modules_sync.sql es un paso manual y separado.
+- No guardar claves secretas en el frontend.
+- Antes de actualizar desde GitHub Pages, mantener un respaldo JSON fuera del celular.
+- La rama debe pasar revisión de código y pruebas reales en Android antes de integrarse a main.
