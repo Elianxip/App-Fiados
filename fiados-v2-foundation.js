@@ -20,7 +20,8 @@
     backupVersion: BACKUP_VERSION,
     exportedAt: new Date().toISOString(),
     clients: readArray(CLIENTS_KEY),
-    transactions: readArray(TX_KEY)
+    transactions: readArray(TX_KEY),
+    paymentPlans: readArray('fiados_payment_plans')
   });
 
   const validate = (data) => {
@@ -35,6 +36,7 @@
       if (ids.has(c.id)) throw new Error('Hay IDs de clientes duplicados. Importación cancelada.');
       ids.add(c.id);
     }
+    if (data.paymentPlans !== undefined && !Array.isArray(data.paymentPlans)) throw new Error('Los planes de pago del respaldo no son válidos.');
     const txIds = new Set();
     for (const tx of data.transactions) {
       if (!tx || typeof tx.id !== 'string' || !ids.has(tx.clientId) ||
@@ -115,6 +117,7 @@
       URL.revokeObjectURL(safetyUrl);
       localStorage.setItem(CLIENTS_KEY, JSON.stringify(data.clients));
       localStorage.setItem(TX_KEY, JSON.stringify(data.transactions));
+      if (Array.isArray(data.paymentPlans)) localStorage.setItem('fiados_payment_plans', JSON.stringify(data.paymentPlans));
       status.textContent = 'Respaldo restaurado. Recargando la aplicación…';
       window.location.reload();
     } catch (error) {
